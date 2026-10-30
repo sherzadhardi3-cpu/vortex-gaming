@@ -619,6 +619,18 @@ export function revealOrderActivationKeys(
       };
     });
 
+    // If first time delivered/revealed, record timeline event
+    const alreadyLoggedDelivery = order.statusHistory.some((h) => h.to === 'DELIVERED');
+    if (!alreadyLoggedDelivery) {
+      order.statusHistory.push({
+        statusType: 'FULFILLMENT',
+        from: 'COMPLETED',
+        to: 'DELIVERED',
+        timestamp: now,
+        reason: 'Digital product delivered and revealed in customer vault',
+      });
+    }
+
     order.updatedAt = now;
     persistStore();
 
@@ -713,19 +725,30 @@ export function sanitizeOrderForCustomer(order: StoredOrder) {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
+    customerEmail: order.customerEmail,
+    customerName: order.customerName,
     paymentProvider: order.paymentProvider,
     paymentStatus: order.paymentStatus,
     fulfillmentStatus: order.fulfillmentStatus,
     currency: order.currency,
     total: order.total,
+    discountApplied: order.discountApplied || 0,
     isSandbox: order.isSandbox,
     items: order.items.map((i) => ({
       gameId: i.gameId,
       title: i.title,
       platform: i.platform,
       quantity: i.quantity,
+      unitPriceUSD: i.unitPriceUSD,
+      unitPriceIQD: i.unitPriceIQD,
     })),
+    statusHistory: order.statusHistory || [],
     createdAt: order.createdAt,
+    paidAt: order.paidAt,
+    fulfilledAt: order.fulfilledAt,
+    revokedAt: order.revokedAt,
+    refundReason: order.refundReason,
+    allocatedKeysCount: order.allocatedKeys?.length || 0,
     hasKeysAllocated: order.allocatedKeys.length > 0,
     canReveal: canRevealActivationKey(order.paymentStatus, order.fulfillmentStatus),
     notice: order.isSandbox ? 'TEST ORDER — NO REAL PAYMENT' : undefined,

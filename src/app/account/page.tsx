@@ -587,12 +587,23 @@ function AccountDashboardContent() {
                               <span className="px-2.5 py-1 rounded-xl bg-white/5 text-[#00d4ff] font-bold border border-white/10">
                                 {order.items?.[0]?.platform || 'Digital'}
                               </span>
-                              <span className="text-[#6b6b80] font-mono">Order #{order.orderNumber}</span>
+                              <Link
+                                href={`/account/orders/${order.id}`}
+                                className="text-[#00d4ff] hover:underline font-mono font-bold"
+                              >
+                                Order #{order.orderNumber}
+                              </Link>
                               <span className="text-[#6b6b80]">•</span>
                               <span className="text-[#6b6b80]">{new Date(order.createdAt).toLocaleDateString()}</span>
                             </div>
 
-                            <div className="text-xs font-semibold flex items-center gap-1.5">
+                            <div className="flex items-center gap-3">
+                              <Link
+                                href={`/account/orders/${order.id}`}
+                                className="text-[11px] text-[#00d4ff] hover:underline font-bold"
+                              >
+                                View Order Details &rarr;
+                              </Link>
                               {isDelivered ? (
                                 <span className="text-emerald-400 flex items-center gap-1">
                                   <CheckCircle className="w-3.5 h-3.5" />

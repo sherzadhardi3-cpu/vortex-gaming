@@ -46,6 +46,45 @@ export interface TranslationDictionary {
   'catalog.emptySubtitle': string;
   'catalog.browseAll': string;
 
+  // Order Details & Timeline
+  'orderDetails.backToOrders': string;
+  'orderDetails.orderNumber': string;
+  'orderDetails.placedOn': string;
+  'orderDetails.stageOrderPlaced': string;
+  'orderDetails.stagePaymentConfirmed': string;
+  'orderDetails.stageFulfillmentCompleted': string;
+  'orderDetails.stageDelivered': string;
+  'orderDetails.totalDelivered': string;
+  'orderDetails.viewDetails': string;
+  'orderDetails.hideDetails': string;
+  'orderDetails.customerSupport': string;
+  'orderDetails.rateNow': string;
+  'orderDetails.orderSummary': string;
+  'orderDetails.subtotal': string;
+  'orderDetails.discount': string;
+  'orderDetails.total': string;
+  'orderDetails.paymentMethod': string;
+  'orderDetails.paymentStatus': string;
+  'orderDetails.fulfillmentStatus': string;
+  'orderDetails.statusPaid': string;
+  'orderDetails.statusPending': string;
+  'orderDetails.statusFailed': string;
+  'orderDetails.statusRefunded': string;
+  'orderDetails.statusCompleted': string;
+  'orderDetails.statusProcessing': string;
+  'orderDetails.awaitingPayment': string;
+  'orderDetails.boughtBy': string;
+  'orderDetails.testOrderNotice': string;
+  'orderDetails.activationGuide': string;
+  'orderDetails.region': string;
+  'orderDetails.platform': string;
+  'orderDetails.copyKey': string;
+  'orderDetails.revealKey': string;
+  'orderDetails.copied': string;
+  'orderDetails.timelineHistory': string;
+  'orderDetails.orderNotFound': string;
+  'orderDetails.orderNotFoundDesc': string;
+
   // Trust Strip
   'trust.instantDelivery': string;
   'trust.instantDeliveryDesc': string;
@@ -241,6 +280,45 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'catalog.emptySubtitle': 'No products currently match this category or filter criteria.',
     'catalog.browseAll': 'Browse All Products',
 
+    // Order Details & Timeline
+    'orderDetails.backToOrders': 'Back to Orders',
+    'orderDetails.orderNumber': 'Order no.',
+    'orderDetails.placedOn': 'Placed on',
+    'orderDetails.stageOrderPlaced': 'Order Placed',
+    'orderDetails.stagePaymentConfirmed': 'Payment Confirmed',
+    'orderDetails.stageFulfillmentCompleted': 'Fulfillment Completed',
+    'orderDetails.stageDelivered': 'Digital Product Delivered',
+    'orderDetails.totalDelivered': 'Total delivered',
+    'orderDetails.viewDetails': 'View details',
+    'orderDetails.hideDetails': 'Hide details',
+    'orderDetails.customerSupport': 'Customer Support',
+    'orderDetails.rateNow': 'Rate now',
+    'orderDetails.orderSummary': 'Order summary',
+    'orderDetails.subtotal': 'Subtotal',
+    'orderDetails.discount': 'Discount',
+    'orderDetails.total': 'Total',
+    'orderDetails.paymentMethod': 'Payment Method',
+    'orderDetails.paymentStatus': 'Payment Status',
+    'orderDetails.fulfillmentStatus': 'Fulfillment Status',
+    'orderDetails.statusPaid': 'Paid',
+    'orderDetails.statusPending': 'Pending',
+    'orderDetails.statusFailed': 'Failed',
+    'orderDetails.statusRefunded': 'Refunded',
+    'orderDetails.statusCompleted': 'Completed',
+    'orderDetails.statusProcessing': 'Processing',
+    'orderDetails.awaitingPayment': 'Awaiting Payment Confirmation',
+    'orderDetails.boughtBy': 'Bought by',
+    'orderDetails.testOrderNotice': 'TEST ORDER — NO REAL PAYMENT',
+    'orderDetails.activationGuide': 'Activation Guide',
+    'orderDetails.region': 'Region',
+    'orderDetails.platform': 'Platform',
+    'orderDetails.copyKey': 'Copy Key',
+    'orderDetails.revealKey': 'Reveal Key',
+    'orderDetails.copied': 'Copied!',
+    'orderDetails.timelineHistory': 'Order Timeline History',
+    'orderDetails.orderNotFound': 'Order Not Found',
+    'orderDetails.orderNotFoundDesc': 'We could not find this order or you do not have permission to view it.',
+
     'trust.instantDelivery': 'Automated Key Delivery',
     'trust.instantDeliveryDesc': 'Automated digital license issuance upon payment clearance.',
     'trust.genuineProducts': '100% Genuine Keys',
@@ -429,6 +507,45 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'catalog.emptySubtitle': 'لە ئێستادا هیچ بەرهەمێک لەم پۆلە یان بەپێی ئەم فلتەرە بەردەست نییە.',
     'catalog.browseAll': 'سەردانی هەموو بەرهەمەکان بکە',
 
+    // Order Details & Timeline
+    'orderDetails.backToOrders': 'گەڕانەوە بۆ داواکارییەکان',
+    'orderDetails.orderNumber': 'ژمارەی داواکاری',
+    'orderDetails.placedOn': 'داواکراوە لە',
+    'orderDetails.stageOrderPlaced': 'داواکاری تۆمارکرا',
+    'orderDetails.stagePaymentConfirmed': 'پارەدان پشتڕاستکرایەوە',
+    'orderDetails.stageFulfillmentCompleted': 'ئامادەکردن تەواوبوو',
+    'orderDetails.stageDelivered': 'بەرهەمی دیجیتاڵی گەیشت',
+    'orderDetails.totalDelivered': 'کۆی گەیەندراو',
+    'orderDetails.viewDetails': 'بینینی وردەکارییەکان',
+    'orderDetails.hideDetails': 'شاردنەوەی وردەکارییەکان',
+    'orderDetails.customerSupport': 'پشتیوانی کڕیار',
+    'orderDetails.rateNow': 'هەڵسەنگاندن',
+    'orderDetails.orderSummary': 'کورتەی داواکاری',
+    'orderDetails.subtotal': 'کۆی بەشەکی',
+    'orderDetails.discount': 'داشکاندن',
+    'orderDetails.total': 'کۆی گشتی',
+    'orderDetails.paymentMethod': 'شێوازی پارەدان',
+    'orderDetails.paymentStatus': 'دۆخی پارەدان',
+    'orderDetails.fulfillmentStatus': 'دۆخی گەیاندن',
+    'orderDetails.statusPaid': 'دراوە',
+    'orderDetails.statusPending': 'چاوەڕوانکراو',
+    'orderDetails.statusFailed': 'سەرکەوتوو نەبوو',
+    'orderDetails.statusRefunded': 'گەڕێنراوەتەوە',
+    'orderDetails.statusCompleted': 'تەواوبوو',
+    'orderDetails.statusProcessing': 'لە قۆناغی کارپێکردندایە',
+    'orderDetails.awaitingPayment': 'چاوەڕوانی پشتڕاستکردنەوەی پارەدانە',
+    'orderDetails.boughtBy': 'کڕدراوە لەلایەن',
+    'orderDetails.testOrderNotice': 'داواکاری تاقیکاری — هیچ پارەدانێکی ڕاستەقینە نییە',
+    'orderDetails.activationGuide': 'ڕێبەری کاراکردن',
+    'orderDetails.region': 'ناوچە',
+    'orderDetails.platform': 'پلاتفۆرم',
+    'orderDetails.copyKey': 'کۆپیکردنی کۆد',
+    'orderDetails.revealKey': 'نیشاندانی کۆد',
+    'orderDetails.copied': 'کۆپیکرا!',
+    'orderDetails.timelineHistory': 'مێژووی داواکاری بە کات',
+    'orderDetails.orderNotFound': 'داواکاری نەدۆزرایەوە',
+    'orderDetails.orderNotFoundDesc': 'داواکارییەکە نەدۆزرایەوە یان مۆڵەتی بینینت نییە.',
+
     'trust.instantDelivery': 'گەیاندنی خۆکارانە',
     'trust.instantDeliveryDesc': 'دابینکردنی کلیلی دیجیتاڵی لەگەڵ پشتڕاستبوونەوەی پارەدان.',
     'trust.genuineProducts': '١٠٠٪ کلیلی ڕەسەن',
@@ -616,6 +733,45 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'catalog.emptyTitle': 'لم يتم العثور على منتجات',
     'catalog.emptySubtitle': 'لا تتوفر منتجات حالياً في هذا القسم أو وفقاً لهذه المعايير.',
     'catalog.browseAll': 'تصفح جميع المنتجات',
+
+    // Order Details & Timeline
+    'orderDetails.backToOrders': 'العودة إلى الطلبات',
+    'orderDetails.orderNumber': 'رقم الطلب',
+    'orderDetails.placedOn': 'تم الطلب في',
+    'orderDetails.stageOrderPlaced': 'تم تقديم الطلب',
+    'orderDetails.stagePaymentConfirmed': 'تم تأكيد الدفع',
+    'orderDetails.stageFulfillmentCompleted': 'اكتمل التجهيز',
+    'orderDetails.stageDelivered': 'تم تسليم المنتج الرقمي',
+    'orderDetails.totalDelivered': 'إجمالي المسلّم',
+    'orderDetails.viewDetails': 'عرض التفاصيل',
+    'orderDetails.hideDetails': 'إخفاء التفاصيل',
+    'orderDetails.customerSupport': 'دعم العملاء',
+    'orderDetails.rateNow': 'تقييم الآن',
+    'orderDetails.orderSummary': 'ملخص الطلب',
+    'orderDetails.subtotal': 'المجموع الفرعي',
+    'orderDetails.discount': 'الخصم',
+    'orderDetails.total': 'المجموع الكلي',
+    'orderDetails.paymentMethod': 'طريقة الدفع',
+    'orderDetails.paymentStatus': 'حالة الدفع',
+    'orderDetails.fulfillmentStatus': 'حالة التجهيز',
+    'orderDetails.statusPaid': 'مدفوع',
+    'orderDetails.statusPending': 'قيد الانتظار',
+    'orderDetails.statusFailed': 'فشل',
+    'orderDetails.statusRefunded': 'مسترد',
+    'orderDetails.statusCompleted': 'مكتمل',
+    'orderDetails.statusProcessing': 'قيد المعالجة',
+    'orderDetails.awaitingPayment': 'بانتظار تأكيد الدفع',
+    'orderDetails.boughtBy': 'تم الشراء بواسطة',
+    'orderDetails.testOrderNotice': 'طلب تجريبي — لا يوجد دفع حقيقي',
+    'orderDetails.activationGuide': 'دليل التفعيل',
+    'orderDetails.region': 'المنطقة',
+    'orderDetails.platform': 'المنصة',
+    'orderDetails.copyKey': 'نسخ المفتاح',
+    'orderDetails.revealKey': 'إظهار المفتاح',
+    'orderDetails.copied': 'تم النسخ!',
+    'orderDetails.timelineHistory': 'سجل تتبع مراحل الطلب',
+    'orderDetails.orderNotFound': 'الطلب غير موجود',
+    'orderDetails.orderNotFoundDesc': 'تعذر العثور على هذا الطلب أو ليس لديك إذن للوصول إليه.',
 
     'trust.instantDelivery': 'تسليم آلي ومباشر',
     'trust.instantDeliveryDesc': 'إصدار المفتاح الرقمي آلياً بمجرد تأكيد وتخليص الدفع.',
