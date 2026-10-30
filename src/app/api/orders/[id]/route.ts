@@ -66,6 +66,9 @@ export async function GET(
       order: sanitizeOrderForCustomer(order),
     });
   } catch (error: any) {
+    if (error?.digest === 'NEXT_PRERENDER_INTERRUPTED') {
+      throw error;
+    }
     console.error('[Orders API Error]:', error);
     return NextResponse.json(
       { success: false, error: error.message || 'Internal server error' },

@@ -3,9 +3,9 @@
 // VORTEX GAMING — Sticky Responsive Header & Navigation
 // Glass-morphic aesthetic, platform shortcuts, search bar, language/currency selectors, cart & wishlist badges
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
   Search,
   ShoppingCart,
@@ -24,6 +24,7 @@ import {
   Lock,
   Headphones,
   Compass,
+  Apple,
 } from 'lucide-react';
 import { PLATFORMS, CURRENCIES, LANGUAGES } from '@/lib/constants';
 import { useCartStore } from '@/lib/store/useCartStore';
@@ -34,6 +35,91 @@ import { useTranslation, type TranslationDictionary } from '@/lib/i18n';
 import type { SupportedLanguage } from '@/lib/store/useLanguageStore';
 import { GAMES_CATALOG } from '@/lib/data/games';
 import { VortexLogo } from '@/components/brand/VortexLogo';
+
+interface NavItem {
+  id: string;
+  href: string;
+  labelKey: keyof TranslationDictionary;
+  isApple?: boolean;
+}
+
+const SECONDARY_NAV_ITEMS: NavItem[] = [
+  { id: 'all', href: '/store', labelKey: 'nav.allProducts' },
+  { id: 'games', href: '/store?category=games', labelKey: 'nav.games' },
+  { id: 'gift-cards', href: '/store?category=gift-cards', labelKey: 'nav.giftCards' },
+  { id: 'itunes', href: '/store?category=itunes', labelKey: 'nav.itunes', isApple: true },
+  { id: 'subscriptions', href: '/store?category=subscriptions', labelKey: 'nav.subscriptions' },
+  { id: 'game-accounts', href: '/store?category=game-accounts', labelKey: 'nav.gameAccounts' },
+  { id: 'pc-games', href: '/store?category=pc-games', labelKey: 'nav.pcGames' },
+  { id: 'top-ups', href: '/store?category=top-ups', labelKey: 'nav.topUps' },
+  { id: 'support', href: '/support', labelKey: 'nav.support' },
+];
+
+function SecondaryNavLinks({
+  isMobile = false,
+  onItemClick,
+}: {
+  isMobile?: boolean;
+  onItemClick?: () => void;
+}) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { t } = useTranslation();
+
+  const currentCategory =
+    pathname === '/store'
+      ? searchParams.get('category') || 'all'
+      : pathname === '/support'
+      ? 'support'
+      : null;
+
+  if (isMobile) {
+    return (
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        {SECONDARY_NAV_ITEMS.map((item) => {
+          const isActive = currentCategory === item.id;
+          return (
+            <Link
+              key={item.id}
+              href={item.href}
+              onClick={onItemClick}
+              className={`p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                isActive
+                  ? 'bg-[#0070f3]/25 border border-[#0070f3] text-white font-bold shadow-sm shadow-[#0070f3]/20'
+                  : 'bg-white/5 text-[#a0a0b8] hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {item.isApple && <Apple className="w-3.5 h-3.5 text-[#00d4ff] shrink-0" />}
+              <span className="truncate">{t(item.labelKey)}</span>
+            </Link>
+          );
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <nav className="hidden md:flex items-center gap-1 sm:gap-2 pt-2.5 mt-2.5 border-t border-white/5 overflow-x-auto no-scrollbar">
+      {SECONDARY_NAV_ITEMS.map((item) => {
+        const isActive = currentCategory === item.id;
+        return (
+          <Link
+            key={item.id}
+            href={item.href}
+            className={`px-3.5 py-1.5 text-xs rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              isActive
+                ? 'bg-[#0070f3]/20 border border-[#0070f3] text-white font-bold shadow-sm shadow-[#0070f3]/25 ring-1 ring-[#0070f3]/30'
+                : 'text-[#a0a0b8] hover:text-white hover:bg-white/5 border border-transparent font-medium'
+            }`}
+          >
+            {item.isApple && <Apple className="w-3.5 h-3.5 text-[#00d4ff] shrink-0" />}
+            <span>{t(item.labelKey)}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
 
 export function Header() {
   const router = useRouter();
@@ -423,46 +509,10 @@ export function Header() {
           </div>
         </div>
 
-        {/* Platform & Store Navigation Bar */}
-        <nav className="hidden md:flex items-center justify-between pt-3 mt-3 border-t border-white/5 overflow-x-auto no-scrollbar">
-          <div className="flex items-center gap-5">
-            <Link
-              href="/"
-              className="text-xs font-bold text-[#00d4ff] hover:text-white uppercase tracking-wider transition-colors shrink-0 flex items-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{t('nav.home')}</span>
-            </Link>
-
-            <Link
-              href="/store"
-              className="text-xs font-bold text-white hover:text-[#00d4ff] uppercase tracking-wider transition-colors shrink-0 flex items-center gap-1.5"
-            >
-              <Compass className="w-3.5 h-3.5 text-[#00d4ff]" />
-              <span>{t('nav.store')}</span>
-            </Link>
-
-            {PLATFORMS.map((platform) => (
-              <Link
-                key={platform.id}
-                href={`/platform/${platform.slug}`}
-                className="text-xs font-medium text-[#a0a0b8] hover:text-white uppercase tracking-wider transition-colors shrink-0 flex items-center gap-1.5 hover:scale-105"
-              >
-                <span>{platform.icon}</span>
-                <span>{platform.name}</span>
-              </Link>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-4 text-xs font-medium shrink-0">
-            <Link href="/deals" className="text-amber-400 hover:text-amber-300 font-bold tracking-wider uppercase">
-              🔥 {t('nav.deals')}
-            </Link>
-            <Link href="/store?type=GIFT_CARD" className="text-[#a0a0b8] hover:text-white tracking-wider uppercase">
-              Gift Cards
-            </Link>
-          </div>
-        </nav>
+        {/* Secondary Navigation Bar (Exact order: All Products | Games | Gift Cards | iTunes | Subscriptions | Game Accounts | PC Games | Top-Ups | Support) */}
+        <Suspense fallback={<div className="h-9" />}>
+          <SecondaryNavLinks />
+        </Suspense>
       </div>
 
       {/* Mobile Drawer Menu */}
@@ -479,36 +529,10 @@ export function Header() {
             <Search className="w-4 h-4 text-[#6b6b80] absolute left-3 top-3" />
           </form>
 
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <Link
-              href="/"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2.5 rounded-xl bg-white/5 text-[#00d4ff] font-bold"
-            >
-              {t('nav.home')}
-            </Link>
-            <Link
-              href="/store"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2.5 rounded-xl bg-white/5 text-white font-bold"
-            >
-              {t('nav.store')}
-            </Link>
-            <Link
-              href="/deals"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2.5 rounded-xl bg-white/5 text-amber-400 font-bold"
-            >
-              {t('nav.deals')}
-            </Link>
-            <Link
-              href="/account"
-              onClick={() => setMobileMenuOpen(false)}
-              className="p-2.5 rounded-xl bg-white/5 text-white font-bold"
-            >
-              {t('nav.account')}
-            </Link>
-          </div>
+          {/* Mobile Secondary Navigation Links */}
+          <Suspense fallback={<div className="h-20" />}>
+            <SecondaryNavLinks isMobile onItemClick={() => setMobileMenuOpen(false)} />
+          </Suspense>
 
           <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
             <div className="flex items-center gap-2">

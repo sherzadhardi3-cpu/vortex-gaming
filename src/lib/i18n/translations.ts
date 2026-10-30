@@ -20,6 +20,32 @@ export interface TranslationDictionary {
   'nav.logout': string;
   'nav.admin': string;
 
+  // Secondary Navigation Order
+  'nav.allProducts': string;
+  'nav.games': string;
+  'nav.giftCards': string;
+  'nav.itunes': string;
+  'nav.subscriptions': string;
+  'nav.gameAccounts': string;
+  'nav.pcGames': string;
+  'nav.topUps': string;
+
+  // Catalog Filters & UI
+  'catalog.categories': string;
+  'catalog.platformFilters': string;
+  'catalog.priceRange': string;
+  'catalog.minPrice': string;
+  'catalog.maxPrice': string;
+  'catalog.applyFilter': string;
+  'catalog.clearFilters': string;
+  'catalog.inStockOnly': string;
+  'catalog.viewGrid': string;
+  'catalog.viewList': string;
+  'catalog.fromPrice': string;
+  'catalog.emptyTitle': string;
+  'catalog.emptySubtitle': string;
+  'catalog.browseAll': string;
+
   // Trust Strip
   'trust.instantDelivery': string;
   'trust.instantDeliveryDesc': string;
@@ -191,6 +217,30 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'nav.logout': 'Log Out',
     'nav.admin': 'Admin Center',
 
+    'nav.allProducts': 'All Products',
+    'nav.games': 'Games',
+    'nav.giftCards': 'Gift Cards',
+    'nav.itunes': 'iTunes',
+    'nav.subscriptions': 'Subscriptions',
+    'nav.gameAccounts': 'Game Accounts',
+    'nav.pcGames': 'PC Games',
+    'nav.topUps': 'Top-Ups',
+
+    'catalog.categories': 'Categories',
+    'catalog.platformFilters': 'Platform',
+    'catalog.priceRange': 'Price Range',
+    'catalog.minPrice': 'Min',
+    'catalog.maxPrice': 'Max',
+    'catalog.applyFilter': 'Apply',
+    'catalog.clearFilters': 'Clear All',
+    'catalog.inStockOnly': 'In Stock Only',
+    'catalog.viewGrid': 'Grid',
+    'catalog.viewList': 'List',
+    'catalog.fromPrice': 'From',
+    'catalog.emptyTitle': 'No Products Found',
+    'catalog.emptySubtitle': 'No products currently match this category or filter criteria.',
+    'catalog.browseAll': 'Browse All Products',
+
     'trust.instantDelivery': 'Automated Key Delivery',
     'trust.instantDeliveryDesc': 'Automated digital license issuance upon payment clearance.',
     'trust.genuineProducts': '100% Genuine Keys',
@@ -355,6 +405,30 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'nav.logout': 'دەرچوون',
     'nav.admin': 'ناوەندی بەڕێوەبەر',
 
+    'nav.allProducts': 'هەموو بەرهەمەکان',
+    'nav.games': 'یارییەکان',
+    'nav.giftCards': 'کارتەکانی دیاری',
+    'nav.itunes': 'ئایتونس',
+    'nav.subscriptions': 'بەشداریکردنەکان',
+    'nav.gameAccounts': 'هەژمارەکانی یاری',
+    'nav.pcGames': 'یارییەکانی کۆمپیوتەر',
+    'nav.topUps': 'بارگاویکردنەوە',
+
+    'catalog.categories': 'پۆلەکان',
+    'catalog.platformFilters': 'پلاتفۆرم',
+    'catalog.priceRange': 'مەودای نرخ',
+    'catalog.minPrice': 'کەمترین',
+    'catalog.maxPrice': 'زۆرترین',
+    'catalog.applyFilter': 'جێبەجێکردن',
+    'catalog.clearFilters': 'پاککردنەوە',
+    'catalog.inStockOnly': 'تەنها لە کۆگادا هەیە',
+    'catalog.viewGrid': 'تۆڕ',
+    'catalog.viewList': 'لیست',
+    'catalog.fromPrice': 'لە',
+    'catalog.emptyTitle': 'هیچ بەرهەمێک نەدۆزرایەوە',
+    'catalog.emptySubtitle': 'لە ئێستادا هیچ بەرهەمێک لەم پۆلە یان بەپێی ئەم فلتەرە بەردەست نییە.',
+    'catalog.browseAll': 'سەردانی هەموو بەرهەمەکان بکە',
+
     'trust.instantDelivery': 'گەیاندنی خۆکارانە',
     'trust.instantDeliveryDesc': 'دابینکردنی کلیلی دیجیتاڵی لەگەڵ پشتڕاستبوونەوەی پارەدان.',
     'trust.genuineProducts': '١٠٠٪ کلیلی ڕەسەن',
@@ -518,6 +592,30 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'nav.register': 'إنشاء حساب',
     'nav.logout': 'تسجيل الخروج',
     'nav.admin': 'لوحة الإدارة',
+
+    'nav.allProducts': 'جميع المنتجات',
+    'nav.games': 'الألعاب',
+    'nav.giftCards': 'بطاقات الهدايا',
+    'nav.itunes': 'آيتونز',
+    'nav.subscriptions': 'الاشتراكات',
+    'nav.gameAccounts': 'حسابات الألعاب',
+    'nav.pcGames': 'ألعاب الكمبيوتر',
+    'nav.topUps': 'شحن الرصيد',
+
+    'catalog.categories': 'الأقسام',
+    'catalog.platformFilters': 'المنصة',
+    'catalog.priceRange': 'نطاق السعر',
+    'catalog.minPrice': 'الحد الأدنى',
+    'catalog.maxPrice': 'الحد الأقصى',
+    'catalog.applyFilter': 'تطبيق',
+    'catalog.clearFilters': 'مسح الكل',
+    'catalog.inStockOnly': 'المتوفر فقط',
+    'catalog.viewGrid': 'شبكة',
+    'catalog.viewList': 'قائمة',
+    'catalog.fromPrice': 'من',
+    'catalog.emptyTitle': 'لم يتم العثور على منتجات',
+    'catalog.emptySubtitle': 'لا تتوفر منتجات حالياً في هذا القسم أو وفقاً لهذه المعايير.',
+    'catalog.browseAll': 'تصفح جميع المنتجات',
 
     'trust.instantDelivery': 'تسليم آلي ومباشر',
     'trust.instantDeliveryDesc': 'إصدار المفتاح الرقمي آلياً بمجرد تأكيد وتخليص الدفع.',
