@@ -1,7 +1,13 @@
 // VORTEX GAMING — Server-Authoritative Price & Discount Calculator
 // Discards any client-submitted prices or amounts to prevent tampering.
+// Supports multi-currency conversion with benchmark exchange rates.
 
-import { GAMES_CATALOG } from '@/lib/data/games';
+import { GAMES_CATALOG } from '../data/games.ts';
+import {
+  type CurrencyCode,
+  getCurrencyConfig,
+  convertUSDCents,
+} from '../constants/currencies.ts';
 
 const VALID_PROMOS: Record<string, number> = {
   VORTEX10: 10,
@@ -18,7 +24,7 @@ export interface CheckoutItemInput {
 
 export function calculateAuthoritativeTotals(
   items: CheckoutItemInput[],
-  currency: 'USD' | 'IQD' = 'USD',
+  currency: CurrencyCode | string = 'USD',
   couponCode?: string
 ) {
   let subtotalUSD = 0;
@@ -62,6 +68,9 @@ export function calculateAuthoritativeTotals(
   const totalUSD = subtotalUSD - discountUSD;
   const totalIQD = subtotalIQD - discountIQD;
 
+  const validCurrency = (getCurrencyConfig(currency)?.code || 'USD') as CurrencyCode;
+  const converted = convertUSDCents(totalUSD, validCurrency, totalIQD);
+
   return {
     verifiedItems,
     discountPercent,
@@ -69,6 +78,10 @@ export function calculateAuthoritativeTotals(
     subtotalIQD,
     totalUSD,
     totalIQD,
-    authoritativeTotal: currency === 'IQD' ? totalIQD : totalUSD,
+    displayCurrency: validCurrency,
+    exchangeRate: converted.rate,
+    convertedTotal: converted.amount,
+    formattedTotal: converted.formatted,
+    authoritativeTotal: validCurrency === 'IQD' ? totalIQD : totalUSD,
   };
 }

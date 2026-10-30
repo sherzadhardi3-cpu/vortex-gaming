@@ -23,6 +23,8 @@ import {
   Wallet,
   Lock,
   Headphones,
+  Coins,
+  Check,
   Compass,
   Apple,
 } from 'lucide-react';
@@ -130,13 +132,19 @@ export function Header() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const currencyMenuRef = useRef<HTMLDivElement>(null);
+  const langMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const cartCount = useCartStore((state) => state.getTotalCount());
   const wishlistCount = useWishlistStore((state) => state.items.length);
   const { currency, setCurrency } = useCurrencyStore();
   const { user, isAuthenticated, isAdmin, logout } = useAuthStore();
+
+  const activeCurrencyConfig = CURRENCIES.find((c) => c.code === currency) || CURRENCIES[0];
 
   // Hydration & scroll listener
   useEffect(() => {
@@ -172,15 +180,39 @@ export function Header() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Close search dropdown on click outside
+  // Close dropdowns on click outside and escape key
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (searchRef.current && !searchRef.current.contains(target)) {
         setSearchOpen(false);
       }
+      if (currencyMenuRef.current && !currencyMenuRef.current.contains(target)) {
+        setCurrencyMenuOpen(false);
+      }
+      if (langMenuRef.current && !langMenuRef.current.contains(target)) {
+        setLangMenuOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
+        setUserMenuOpen(false);
+      }
     };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSearchOpen(false);
+        setCurrencyMenuOpen(false);
+        setLangMenuOpen(false);
+        setUserMenuOpen(false);
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   // Filtered games for quick search autocomplete
@@ -271,27 +303,90 @@ export function Header() {
           {/* Right Action Icons & Controls */}
           <div className="flex items-center gap-2 sm:gap-3">
             
-            {/* Currency Selector */}
-            <div className="hidden lg:flex items-center bg-[#12121a] border border-white/10 rounded-lg p-0.5">
-              {CURRENCIES.map((cur) => (
-                <button
-                  key={cur.code}
-                  onClick={() => setCurrency(cur.code as CurrencyCode)}
-                  className={`px-2.5 py-1 text-xs font-semibold rounded-md transition-all ${
-                    currency === cur.code
-                      ? 'bg-[#00d4ff] text-black shadow-sm font-bold'
-                      : 'text-[#a0a0b8] hover:text-white'
-                  }`}
+            {/* Premium Multi-Currency Dropdown */}
+            <div className="relative" ref={currencyMenuRef}>
+              <button
+                onClick={() => {
+                  setCurrencyMenuOpen(!currencyMenuOpen);
+                  setLangMenuOpen(false);
+                  setUserMenuOpen(false);
+                }}
+                aria-expanded={currencyMenuOpen}
+                aria-haspopup="listbox"
+                aria-label="Select Currency"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#12121a] border border-white/10 hover:border-[#00d4ff]/40 text-xs font-medium text-[#a0a0b8] hover:text-white transition-all shadow-sm group"
+              >
+                <Coins className="w-3.5 h-3.5 text-[#00d4ff] group-hover:scale-110 transition-transform" />
+                <span className="font-mono font-bold text-white text-xs">{currency}</span>
+                <span className="text-[#00d4ff] font-bold text-[11px] hidden sm:inline">({activeCurrencyConfig.symbol})</span>
+                <ChevronDown className={`w-3 h-3 text-[#6b6b80] transition-transform duration-200 ${currencyMenuOpen ? 'rotate-180 text-[#00d4ff]' : ''}`} />
+              </button>
+
+              {currencyMenuOpen && (
+                <div
+                  role="listbox"
+                  aria-label="Available currencies"
+                  className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-64 max-h-72 overflow-y-auto no-scrollbar bg-[#12121a]/95 backdrop-blur-xl border border-white/15 rounded-xl shadow-2xl py-1.5 z-50 ring-1 ring-black/60`}
                 >
-                  {cur.code}
-                </button>
-              ))}
+                  <div className="px-3 py-1.5 border-b border-white/5 text-[10px] font-bold uppercase tracking-wider text-[#6b6b80] flex items-center justify-between">
+                    <span>Display Currency</span>
+                    <span className="text-[#00d4ff] text-[9px] font-mono">ESTIMATE</span>
+                  </div>
+                  <div className="py-1">
+                    {CURRENCIES.map((cur) => {
+                      const isSelected = currency === cur.code;
+                      return (
+                        <button
+                          key={cur.code}
+                          role="option"
+                          aria-selected={isSelected}
+                          onClick={() => {
+                            setCurrency(cur.code as CurrencyCode);
+                            setCurrencyMenuOpen(false);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-all border-l-2 ${
+                            isSelected
+                              ? 'bg-[#00d4ff]/15 text-white font-bold border-[#00d4ff]'
+                              : 'text-[#a0a0b8] hover:text-white hover:bg-white/5 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span
+                              className={`w-6 h-6 rounded flex items-center justify-center font-mono font-bold text-xs shrink-0 ${
+                                isSelected
+                                  ? 'bg-[#00d4ff] text-black shadow-sm'
+                                  : 'bg-white/5 text-[#00d4ff]'
+                              }`}
+                            >
+                              {cur.symbol}
+                            </span>
+                            <div className="truncate">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono font-black text-white">{cur.code}</span>
+                                <span className="text-[11px] text-[#a0a0b8] truncate">• {cur.name}</span>
+                              </div>
+                              <div className="text-[10px] text-[#6b6b80] truncate">{cur.nativeName}</div>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <Check className="w-3.5 h-3.5 text-[#00d4ff] shrink-0 rtl:mr-2 ltr:ml-2" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Language Selector */}
-            <div className="relative">
+            <div className="relative" ref={langMenuRef}>
               <button
-                onClick={() => setLangMenuOpen(!langMenuOpen)}
+                onClick={() => {
+                  setLangMenuOpen(!langMenuOpen);
+                  setCurrencyMenuOpen(false);
+                  setUserMenuOpen(false);
+                }}
                 className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#12121a] border border-white/10 text-xs font-medium text-[#a0a0b8] hover:text-white transition-colors"
                 title="Select Language"
               >
@@ -542,32 +637,54 @@ export function Header() {
             <SecondaryNavLinks isMobile onItemClick={() => setMobileMenuOpen(false)} />
           </Suspense>
 
-          <div className="flex items-center justify-between pt-2 border-t border-white/10 text-xs">
-            <div className="flex items-center gap-2">
-              {LANGUAGES.map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => handleLanguageChange(lang.code as SupportedLanguage)}
-                  className={`px-2 py-1 rounded text-xs ${
-                    language === lang.code ? 'bg-[#00d4ff] text-black font-bold' : 'text-[#a0a0b8]'
-                  }`}
-                >
-                  {lang.code.toUpperCase()}
-                </button>
-              ))}
+          {/* Mobile Footer: Language & Currency */}
+          <div className="pt-3 border-t border-white/10 space-y-3 text-xs">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-[#6b6b80] uppercase tracking-wider">Language:</span>
+              <div className="flex items-center gap-1.5">
+                {LANGUAGES.map((lang) => (
+                  <button
+                    key={lang.code}
+                    onClick={() => handleLanguageChange(lang.code as SupportedLanguage)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                      language === lang.code
+                        ? 'bg-[#00d4ff] text-black font-bold shadow-sm'
+                        : 'bg-white/5 text-[#a0a0b8] hover:text-white'
+                    }`}
+                  >
+                    {lang.code.toUpperCase()}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              {CURRENCIES.map((cur) => (
-                <button
-                  key={cur.code}
-                  onClick={() => setCurrency(cur.code as CurrencyCode)}
-                  className={`px-2 py-1 rounded text-xs ${
-                    currency === cur.code ? 'bg-[#00d4ff] text-black font-bold' : 'text-[#a0a0b8]'
-                  }`}
-                >
-                  {cur.code}
-                </button>
-              ))}
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-[#6b6b80] uppercase tracking-wider">
+                <span>Display Currency:</span>
+                <span className="text-[#00d4ff] font-mono">{activeCurrencyConfig.name} ({activeCurrencyConfig.symbol})</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto no-scrollbar">
+                {CURRENCIES.map((cur) => {
+                  const isSelected = currency === cur.code;
+                  return (
+                    <button
+                      key={cur.code}
+                      onClick={() => {
+                        setCurrency(cur.code as CurrencyCode);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={`px-2 py-2 rounded-lg text-xs font-mono font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        isSelected
+                          ? 'bg-[#00d4ff] text-black shadow-md'
+                          : 'bg-white/5 text-[#a0a0b8] hover:text-white hover:bg-white/10 border border-white/5'
+                      }`}
+                    >
+                      <span className="text-[11px] opacity-80">{cur.symbol}</span>
+                      <span>{cur.code}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

@@ -45,7 +45,11 @@ export interface StoredOrder {
   fulfillmentStatus: FulfillmentState;
   items: OrderItem[];
   total: number;
-  currency: 'USD' | 'IQD';
+  currency: 'USD' | 'IQD' | string;
+  displayCurrency?: string;
+  exchangeRate?: number;
+  convertedTotal?: number;
+  rateTimestamp?: string;
   discountApplied: number;
   isSandbox: boolean;
   paymentSessionId?: string;
@@ -332,7 +336,11 @@ export function createAuthoritativeOrder(params: {
   customerName?: string;
   items: OrderItem[];
   total: number;
-  currency: 'USD' | 'IQD';
+  currency: 'USD' | 'IQD' | string;
+  displayCurrency?: string;
+  exchangeRate?: number;
+  convertedTotal?: number;
+  rateTimestamp?: string;
   discountApplied?: number;
   paymentProvider: 'stripe' | 'fib' | 'fastpay' | 'qi_card';
   isSandbox?: boolean;
@@ -357,6 +365,10 @@ export function createAuthoritativeOrder(params: {
     items: params.items,
     total: params.total,
     currency: params.currency,
+    displayCurrency: params.displayCurrency || params.currency,
+    exchangeRate: params.exchangeRate,
+    convertedTotal: params.convertedTotal,
+    rateTimestamp: params.rateTimestamp || (params.exchangeRate ? now : undefined),
     discountApplied: params.discountApplied || 0,
     isSandbox,
     allocatedKeys: [],

@@ -14,10 +14,12 @@ export const PLATFORMS = [
   { id: 'ubisoft', name: 'Ubisoft', slug: 'ubisoft', icon: '🌀', color: '#0070ff' },
 ] as const;
 
-export const CURRENCIES = [
-  { code: 'USD', name: 'US Dollar', symbol: '$', locale: 'en-US' },
-  { code: 'IQD', name: 'Iraqi Dinar', symbol: 'د.ع', locale: 'ar-IQ' },
-] as const;
+export {
+  CURRENCIES,
+  CURRENCY_CONFIGS,
+  type CurrencyCode,
+  type CurrencyConfig,
+} from './constants/currencies.ts';
 
 export const LANGUAGES = [
   { code: 'en', name: 'English', dir: 'ltr' as const, nativeName: 'English' },

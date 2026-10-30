@@ -40,6 +40,9 @@ export async function POST(req: NextRequest) {
       discountPercent,
       totalUSD,
       totalIQD,
+      displayCurrency,
+      exchangeRate,
+      convertedTotal,
       authoritativeTotal,
     } = calculateAuthoritativeTotals(items, currency, couponCode);
 
@@ -64,8 +67,12 @@ export async function POST(req: NextRequest) {
         unitPriceUSD: item.unitPriceUSD,
         unitPriceIQD: item.unitPriceIQD,
       })),
-      total: currency === 'IQD' ? totalIQD : totalUSD,
-      currency: currency === 'IQD' ? 'IQD' : 'USD',
+      total: authoritativeTotal,
+      currency: displayCurrency,
+      displayCurrency,
+      exchangeRate,
+      convertedTotal,
+      rateTimestamp: new Date().toISOString(),
       discountApplied: discountPercent,
       paymentProvider: provider,
     });

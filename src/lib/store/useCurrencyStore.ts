@@ -1,14 +1,22 @@
 'use client';
 
-// VORTEX GAMING — Currency State Store
-// Multi-currency support for USD and Iraqi Dinar (IQD)
-// 1 USD is fixed at 1,310 IQD for display estimation, while authoritative prices are stored per game item
+// VORTEX GAMING — Multi-Currency State Store
+// Supports 6 benchmark currencies: USD, IQD, EUR, TRY, SAR, AED
+// Canonical pricing currency: USD (minor units: cents)
 // Server-safe hydration: ensures initial client render matches server HTML perfectly before activating saved preference
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import {
+  type CurrencyCode,
+  type CurrencyConfig,
+  CURRENCY_CONFIGS,
+  getCurrencyConfig,
+  formatCurrencyPrice,
+  convertUSDCents,
+} from '../constants/currencies.ts';
 
-export type CurrencyCode = 'USD' | 'IQD';
+export type { CurrencyCode };
 
 interface CurrencyState {
   currency: CurrencyCode;
@@ -16,6 +24,8 @@ interface CurrencyState {
   setHydrated: (hydrated: boolean) => void;
   setCurrency: (currency: CurrencyCode) => void;
   format: (amountUSD: number, amountIQD?: number) => string;
+  convert: (amountUSD: number, amountIQD?: number) => { amount: number; rate: number; formatted: string };
+  getConfig: () => CurrencyConfig;
 }
 
 export const useCurrencyStore = create<CurrencyState>()(
@@ -25,32 +35,32 @@ export const useCurrencyStore = create<CurrencyState>()(
       isHydrated: false,
       setHydrated: (isHydrated: boolean) => set({ isHydrated }),
       setCurrency: (currency: CurrencyCode) => {
-        set({ currency, isHydrated: true });
+        const validCurrency = CURRENCY_CONFIGS[currency] ? currency : 'USD';
+        set({ currency: validCurrency, isHydrated: true });
         if (typeof document !== 'undefined') {
           try {
-            document.cookie = `vtx_currency=${currency}; path=/; max-age=31536000; SameSite=Lax`;
+            document.cookie = `vtx_currency=${validCurrency}; path=/; max-age=31536000; SameSite=Lax`;
           } catch {
             // ignore
           }
         }
+      },
+      getConfig: () => {
+        const { currency, isHydrated } = get();
+        const activeCurrency = isHydrated ? currency : 'USD';
+        return getCurrencyConfig(activeCurrency);
+      },
+      convert: (amountUSD: number, amountIQD?: number) => {
+        const { currency, isHydrated } = get();
+        const activeCurrency = isHydrated ? currency : 'USD';
+        return convertUSDCents(amountUSD, activeCurrency, amountIQD);
       },
       format: (amountUSD: number, amountIQD?: number) => {
         const { currency, isHydrated } = get();
         // Server and initial client render must render USD identically to prevent hydration mismatch.
         // Once hydrated on the client, the saved currency preference is applied.
         const activeCurrency = isHydrated ? currency : 'USD';
-        if (activeCurrency === 'USD') {
-          return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          }).format(amountUSD / 100);
-        }
-        
-        // For IQD, use explicit amountIQD if provided, or estimate at 1,310 IQD per USD
-        const iqdVal = amountIQD !== undefined ? amountIQD : Math.round((amountUSD / 100) * 1310);
-        return `${new Intl.NumberFormat('en-US').format(iqdVal)} د.ع`;
+        return formatCurrencyPrice(amountUSD, activeCurrency, amountIQD);
       },
     }),
     {

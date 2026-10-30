@@ -360,6 +360,18 @@ export default function CheckoutPage() {
                     {format(getTotalUSD(), getTotalIQD())}
                   </span>
                 </div>
+
+                {currency !== 'USD' && (
+                  <div className="p-2.5 rounded-lg bg-white/5 border border-white/5 text-[11px] text-[#a0a0b8] space-y-1">
+                    <div className="flex items-center justify-between text-[#00d4ff] font-semibold">
+                      <span>Base Canonical Amount:</span>
+                      <span className="font-mono">${(getTotalUSD() / 100).toFixed(2)} USD</span>
+                    </div>
+                    <p className="text-[10px] text-[#6b6b80] leading-relaxed">
+                      Converted total ({currency}) is an estimate using official central bank benchmark reference rates.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {errorMessage && (
