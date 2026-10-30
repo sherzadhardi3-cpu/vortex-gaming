@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 
+process.env.GAME_KEY_ENCRYPTION_KEY ||= '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+
 // VORTEX GAMING — Multi-Currency System Test Suite
 // Verifies all 6 currencies, exchange rates, decimal-safe conversions, hydration,
 // server-authoritative checkout, order persistence, and UI components.
