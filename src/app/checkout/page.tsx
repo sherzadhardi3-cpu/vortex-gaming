@@ -84,9 +84,17 @@ export default function CheckoutPage() {
         throw new Error(data.error || 'Checkout initiation failed. Please try again.');
       }
 
-      // Order created and key allocated in sandbox mode
       clearCart();
-      router.push(`/checkout/success?orderId=${data.orderId}&orderNumber=${data.orderNumber}&provider=${paymentMethod}`);
+
+      // If official provider checkout URL is available (e.g. Stripe Checkout)
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+
+      // Otherwise proceed to authoritative order status screen
+      const tokenQuery = data.orderAccessToken ? `&token=${encodeURIComponent(data.orderAccessToken)}` : '';
+      router.push(`/checkout/success?orderId=${encodeURIComponent(data.orderId)}&orderNumber=${encodeURIComponent(data.orderNumber)}&provider=${encodeURIComponent(paymentMethod)}${tokenQuery}`);
     } catch (err: any) {
       setErrorMessage(err.message || 'Payment processing error');
       setIsProcessing(false);

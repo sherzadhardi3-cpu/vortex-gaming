@@ -2,6 +2,11 @@
 
 import fs from 'fs';
 import path from 'path';
+import {
+  markOrderAsPaid,
+  reconcileOrderRefund,
+  markOrderAsFailed,
+} from '../orders/order-store.ts';
 
 const DATA_DIR = path.join(process.cwd(), '.data');
 const PROCESSED_WEBHOOKS_FILE = path.join(DATA_DIR, 'processed-webhooks.json');
@@ -115,7 +120,7 @@ export function handleVerifiedStripeEvent(event: { id: string; type: string; dat
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object;
-      affectedOrderId = session.metadata?.orderId || `order_${session.id}`;
+      affectedOrderId = session.metadata?.orderId || session.client_reference_id || `order_${session.id}`;
       const orderNumber = session.metadata?.orderNumber || 'VX-CONFIRMED';
       const customerEmail = session.customer_email || session.metadata?.customerEmail || 'customer@vortexgaming.gg';
 
@@ -124,6 +129,12 @@ export function handleVerifiedStripeEvent(event: { id: string; type: string; dat
         customerEmail,
         status: 'FULFILLED',
         keyDelivered: true,
+      });
+
+      // Synchronize authoritative order store: transition to PAID and allocate keys
+      markOrderAsPaid(affectedOrderId, {
+        paymentSessionId: session.id,
+        paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : undefined,
       });
 
       eventRecord.action = 'ORDER_FULFILLED_KEYS_ALLOCATED';
@@ -140,6 +151,9 @@ export function handleVerifiedStripeEvent(event: { id: string; type: string; dat
         revokedAt: new Date().toISOString(),
       });
 
+      // Synchronize authoritative order store: revoke keys
+      reconcileOrderRefund(affectedOrderId, 'Stripe charge refunded');
+
       eventRecord.action = 'KEY_REVOKED_REFUND_RECONCILED';
       break;
     }
@@ -152,6 +166,9 @@ export function handleVerifiedStripeEvent(event: { id: string; type: string; dat
         status: 'FAILED',
         keyDelivered: false,
       });
+
+      // Synchronize authoritative order store: mark FAILED
+      markOrderAsFailed(affectedOrderId, 'Stripe payment intent failed');
 
       eventRecord.action = 'PAYMENT_FAILED_NO_KEYS_ALLOCATED';
       break;

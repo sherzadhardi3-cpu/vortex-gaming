@@ -100,6 +100,48 @@ function AccountDashboardContent() {
   const [revealedKeys, setRevealedKeys] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
+  // Authoritative orders & key reveal state
+  const [userOrders, setUserOrders] = useState<any[]>([]);
+  const [orderKeys, setOrderKeys] = useState<Record<string, string>>({});
+  const [revealingOrderId, setRevealingOrderId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user?.email) {
+      fetch(`/api/orders?userId=${encodeURIComponent(user.id || '')}&email=${encodeURIComponent(user.email)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && Array.isArray(data.orders)) {
+            setUserOrders(data.orders);
+          }
+        })
+        .catch((err) => console.error('Failed to load user orders:', err));
+    }
+  }, [user?.email, user?.id]);
+
+  const handleRevealOrderKey = async (orderId: string) => {
+    setRevealingOrderId(orderId);
+    try {
+      const res = await fetch(`/api/orders/${encodeURIComponent(orderId)}/reveal-key`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user?.id || '',
+          'x-user-email': user?.email || '',
+        },
+        body: JSON.stringify({ userId: user?.id, email: user?.email }),
+      });
+      const data = await res.json();
+      if (data.success && data.keys?.[0]) {
+        setOrderKeys((prev) => ({ ...prev, [orderId]: data.keys[0].plainTextKey }));
+        setRevealedKeys((prev) => ({ ...prev, [orderId]: true }));
+      }
+    } catch (err) {
+      console.error('Error revealing key:', err);
+    } finally {
+      setRevealingOrderId(null);
+    }
+  };
+
   // Edit profile state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [displayName, setDisplayName] = useState('');
@@ -214,10 +256,17 @@ function AccountDashboardContent() {
     );
   }
 
+  // Calculated vault totals based on real customer orders (or sample demo fallback)
+  const totalOrdersCount = userOrders.length > 0 ? userOrders.length : SAMPLE_VAULT.length;
+  const totalKeysCount =
+    userOrders.length > 0
+      ? userOrders.filter((o) => o.fulfillmentStatus === 'COMPLETED').length
+      : SAMPLE_VAULT.length;
+
   // Sidebar navigation options
   const NAV_ITEMS = [
     { id: 'overview', label: t('profilePage.overview'), icon: User },
-    { id: 'orders', label: t('profilePage.orders'), icon: PackageCheck, count: SAMPLE_VAULT.length },
+    { id: 'orders', label: t('profilePage.orders'), icon: PackageCheck, count: totalOrdersCount },
     { id: 'wishlist', label: t('profilePage.wishlist'), icon: Heart, count: wishlistItems.length },
     { id: 'wallet', label: t('profilePage.wallet'), icon: Wallet },
     { id: 'security', label: t('profilePage.security'), icon: Lock },
@@ -284,11 +333,11 @@ function AccountDashboardContent() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 min-w-[110px]">
                 <div className="text-[10px] font-bold text-[#a0a0b8] uppercase">{t('profilePage.statsOrders')}</div>
-                <div className="text-xl font-black text-white font-mono mt-0.5">{SAMPLE_VAULT.length}</div>
+                <div className="text-xl font-black text-white font-mono mt-0.5">{totalOrdersCount}</div>
               </div>
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 min-w-[110px]">
                 <div className="text-[10px] font-bold text-[#a0a0b8] uppercase">{t('profilePage.statsKeys')}</div>
-                <div className="text-xl font-black text-[#00d4ff] font-mono mt-0.5">{SAMPLE_VAULT.length}</div>
+                <div className="text-xl font-black text-[#00d4ff] font-mono mt-0.5">{totalKeysCount}</div>
               </div>
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/5 min-w-[110px]">
                 <div className="text-[10px] font-bold text-[#a0a0b8] uppercase">{t('profilePage.statsWishlist')}</div>
@@ -512,83 +561,207 @@ function AccountDashboardContent() {
                       <span>{t('profilePage.vault')}</span>
                     </h2>
                     <p className="text-xs text-[#a0a0b8] mt-0.5">
-                      Your authentic activation keys are stored securely. Click reveal to view your key.
+                      Your authentic activation keys are stored securely. Payment verification is required before key delivery.
                     </p>
                   </div>
                   <span className="text-xs text-[#a0a0b8] font-mono">
-                    {SAMPLE_VAULT.length} Licenses
+                    {totalOrdersCount} Licenses
                   </span>
                 </div>
 
-                <div className="space-y-4">
-                  {SAMPLE_VAULT.map((item) => {
-                    const isRevealed = !!revealedKeys[item.id];
+                {/* Render Real User Orders if present */}
+                {userOrders.length > 0 ? (
+                  <div className="space-y-4">
+                    {userOrders.map((order) => {
+                      const isRevealed = !!revealedKeys[order.id];
+                      const plainKey = orderKeys[order.id];
+                      const isDelivered = order.canReveal;
 
-                    return (
-                      <div
-                        key={item.id}
-                        className="p-5 sm:p-6 rounded-3xl bg-[#12121a] border border-white/10 hover:border-[#00d4ff]/30 transition-all space-y-4 shadow-xl"
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="px-2.5 py-1 rounded-xl bg-white/5 text-[#00d4ff] font-bold border border-white/10">
-                              {item.platform}
-                            </span>
-                            <span className="text-[#6b6b80] font-mono">Order #{item.orderNumber}</span>
-                            <span className="text-[#6b6b80]">•</span>
-                            <span className="text-[#6b6b80]">{item.purchasedAt}</span>
-                          </div>
-
-                          <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            <span>100% Genuine • {item.activationRegion}</span>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                          <div>
-                            <h3 className="text-base font-bold text-white">{item.gameTitle}</h3>
-                            <div className="text-xs text-[#a0a0b8] mt-0.5">
-                              Status: <strong className="text-emerald-400">Delivered & Ready to Activate</strong>
-                            </div>
-                          </div>
-
-                          {/* Key Field with Reveal & Copy */}
-                          <div className="flex items-center gap-2 bg-[#0a0a0f] p-2 rounded-2xl border border-white/10">
-                            <div className="font-mono text-sm font-bold text-white px-3 tracking-widest min-w-[210px]">
-                              {isRevealed ? item.decryptedKey : '••••-••••-••••-••••'}
+                      return (
+                        <div
+                          key={order.id}
+                          className="p-5 sm:p-6 rounded-3xl bg-[#12121a] border border-white/10 hover:border-[#00d4ff]/30 transition-all space-y-4 shadow-xl"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="px-2.5 py-1 rounded-xl bg-white/5 text-[#00d4ff] font-bold border border-white/10">
+                                {order.items?.[0]?.platform || 'Digital'}
+                              </span>
+                              <span className="text-[#6b6b80] font-mono">Order #{order.orderNumber}</span>
+                              <span className="text-[#6b6b80]">•</span>
+                              <span className="text-[#6b6b80]">{new Date(order.createdAt).toLocaleDateString()}</span>
                             </div>
 
-                            <button
-                              onClick={() => toggleReveal(item.id)}
-                              className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-[#a0a0b8] hover:text-white transition-colors"
-                              title={isRevealed ? t('profilePage.hideKey') : t('profilePage.revealKey')}
-                            >
-                              {isRevealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                            </button>
-
-                            <button
-                              onClick={() => handleCopy(item.decryptedKey)}
-                              className="px-3.5 py-2.5 rounded-xl bg-[#00d4ff] hover:bg-[#00d4ff]/90 text-black font-extrabold text-xs flex items-center gap-1.5 transition-all active:scale-95 shadow-md shadow-[#00d4ff]/20"
-                            >
-                              {copiedKey === item.decryptedKey ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5" />
-                                  <span>{t('profilePage.copied')}</span>
-                                </>
+                            <div className="text-xs font-semibold flex items-center gap-1.5">
+                              {isDelivered ? (
+                                <span className="text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle className="w-3.5 h-3.5" />
+                                  <span>
+                                    {order.isSandbox ? 'TEST ORDER — NO REAL PAYMENT' : '100% Genuine • Verified'}
+                                  </span>
+                                </span>
+                              ) : order.paymentStatus === 'FAILED' ? (
+                                <span className="text-red-400 flex items-center gap-1">
+                                  <AlertCircle className="w-3.5 h-3.5" />
+                                  <span>Payment Failed — Unfulfilled</span>
+                                </span>
                               ) : (
-                                <>
-                                  <Copy className="w-3.5 h-3.5" />
-                                  <span>{t('profilePage.copyKey')}</span>
-                                </>
+                                <span className="text-amber-400 flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5" />
+                                  <span>Awaiting Payment Confirmation</span>
+                                </span>
                               )}
-                            </button>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                              <h3 className="text-base font-bold text-white">
+                                {order.items?.[0]?.title || 'Game License'}
+                              </h3>
+                              <div className="text-xs text-[#a0a0b8] mt-0.5">
+                                Status:{' '}
+                                {isDelivered ? (
+                                  <strong className="text-emerald-400">Delivered & Ready to Activate</strong>
+                                ) : (
+                                  <strong className="text-amber-400">Locked • Awaiting Payment Verification</strong>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Key Field with Server-Authoritative Reveal & Copy */}
+                            <div className="flex items-center gap-2 bg-[#0a0a0f] p-2 rounded-2xl border border-white/10">
+                              <div className="font-mono text-sm font-bold text-white px-3 tracking-widest min-w-[210px]">
+                                {isDelivered && isRevealed && plainKey
+                                  ? plainKey
+                                  : '••••-••••-••••-••••'}
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  if (!plainKey) {
+                                    handleRevealOrderKey(order.id);
+                                  } else {
+                                    toggleReveal(order.id);
+                                  }
+                                }}
+                                disabled={!isDelivered || revealingOrderId === order.id}
+                                className={`p-2.5 rounded-xl transition-colors ${
+                                  !isDelivered
+                                    ? 'bg-white/5 text-[#555] cursor-not-allowed'
+                                    : 'bg-white/5 hover:bg-white/10 text-[#a0a0b8] hover:text-white'
+                                }`}
+                                title={!isDelivered ? 'Locked until payment confirmed' : isRevealed ? t('profilePage.hideKey') : t('profilePage.revealKey')}
+                              >
+                                {isRevealed && plainKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+
+                              <button
+                                onClick={() => plainKey && handleCopy(plainKey)}
+                                disabled={!isDelivered || !plainKey}
+                                className={`px-3.5 py-2.5 rounded-xl font-extrabold text-xs flex items-center gap-1.5 transition-all active:scale-95 ${
+                                  !isDelivered || !plainKey
+                                    ? 'bg-white/5 text-[#555] cursor-not-allowed'
+                                    : 'bg-[#00d4ff] hover:bg-[#00d4ff]/90 text-black shadow-md shadow-[#00d4ff]/20'
+                                }`}
+                              >
+                                {copiedKey === plainKey ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>{t('profilePage.copied')}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>{t('profilePage.copyKey')}</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Fallback Sample Vault preview with clear notice */}
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-xs text-[#a0a0b8] flex items-center justify-between">
+                      <span>Showing sample vault licenses for reference. Complete a checkout to see your live order keys.</span>
+                      <Link href="/" className="text-[#00d4ff] hover:underline font-bold">
+                        Browse Games &rarr;
+                      </Link>
+                    </div>
+
+                    {SAMPLE_VAULT.map((item) => {
+                      const isRevealed = !!revealedKeys[item.id];
+
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-5 sm:p-6 rounded-3xl bg-[#12121a] border border-white/10 hover:border-[#00d4ff]/30 transition-all space-y-4 shadow-xl opacity-90"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-3">
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="px-2.5 py-1 rounded-xl bg-white/5 text-[#00d4ff] font-bold border border-white/10">
+                                {item.platform}
+                              </span>
+                              <span className="text-[#6b6b80] font-mono">Demo Order #{item.orderNumber}</span>
+                              <span className="text-[#6b6b80]">•</span>
+                              <span className="text-[#6b6b80]">{item.purchasedAt}</span>
+                            </div>
+
+                            <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Sample License • {item.activationRegion}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                              <h3 className="text-base font-bold text-white">{item.gameTitle}</h3>
+                              <div className="text-xs text-[#a0a0b8] mt-0.5">
+                                Status: <strong className="text-emerald-400">Sample Demo Key</strong>
+                              </div>
+                            </div>
+
+                            {/* Key Field with Reveal & Copy */}
+                            <div className="flex items-center gap-2 bg-[#0a0a0f] p-2 rounded-2xl border border-white/10">
+                              <div className="font-mono text-sm font-bold text-white px-3 tracking-widest min-w-[210px]">
+                                {isRevealed ? item.decryptedKey : '••••-••••-••••-••••'}
+                              </div>
+
+                              <button
+                                onClick={() => toggleReveal(item.id)}
+                                className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-[#a0a0b8] hover:text-white transition-colors"
+                                title={isRevealed ? t('profilePage.hideKey') : t('profilePage.revealKey')}
+                              >
+                                {isRevealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              </button>
+
+                              <button
+                                onClick={() => handleCopy(item.decryptedKey)}
+                                className="px-3.5 py-2.5 rounded-xl bg-[#00d4ff] hover:bg-[#00d4ff]/90 text-black font-extrabold text-xs flex items-center gap-1.5 transition-all active:scale-95 shadow-md shadow-[#00d4ff]/20"
+                              >
+                                {copiedKey === item.decryptedKey ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>{t('profilePage.copied')}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3.5 h-3.5" />
+                                    <span>{t('profilePage.copyKey')}</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 

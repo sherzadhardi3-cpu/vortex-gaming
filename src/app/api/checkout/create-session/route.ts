@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateOrderNumber } from '@/lib/utils';
 import { getStripeClient, isStripeLiveMode } from '@/lib/stripe';
 import { calculateAuthoritativeTotals } from '@/lib/checkout/authoritative-calculator';
+import { createAuthoritativeOrder } from '@/lib/orders/order-store';
 
 // Server-side authoritative promo codes
 const VALID_PROMOS: Record<string, number> = {
@@ -43,19 +44,39 @@ export async function POST(req: NextRequest) {
     } = calculateAuthoritativeTotals(items, currency, couponCode);
 
     const orderNumber = generateOrderNumber();
-    const orderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const provider = ['stripe', 'fib', 'fastpay', 'qi_card'].includes(paymentProvider)
+      ? (paymentProvider as 'stripe' | 'fib' | 'fastpay' | 'qi_card')
+      : 'stripe';
 
-    // In production with PostgreSQL, this inserts into `orders`, `order_items`, and `payments` tables
-    // and reserves an encrypted GameKey from the vault atomically.
+    const isIraqiProvider = ['fib', 'fastpay', 'qi_card'].includes(provider);
 
-    const isIraqiProvider = ['fib', 'fastpay', 'qi_card'].includes(paymentProvider);
+    // Create authoritative order in PENDING status with ZERO game keys exposed
+    const order = createAuthoritativeOrder({
+      orderNumber,
+      customerEmail,
+      customerId: body.customerId || null,
+      customerName: customerName || '',
+      items: orderItems.map((item) => ({
+        gameId: item.gameId,
+        title: item.title,
+        platform: item.platform,
+        quantity: item.quantity,
+        unitPriceUSD: item.unitPriceUSD,
+        unitPriceIQD: item.unitPriceIQD,
+      })),
+      total: currency === 'IQD' ? totalIQD : totalUSD,
+      currency: currency === 'IQD' ? 'IQD' : 'USD',
+      discountApplied: discountPercent,
+      paymentProvider: provider,
+    });
+
+    const origin = req.headers.get('origin') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
 
     // If Stripe is requested and client is configured with real/test keys
-    if (paymentProvider === 'stripe') {
+    if (provider === 'stripe') {
       const stripe = getStripeClient();
       if (stripe) {
         try {
-          const origin = req.headers.get('origin') || process.env.NEXTAUTH_URL || 'http://localhost:3000';
           const lineItems = orderItems.map((item) => ({
             price_data: {
               currency: 'usd',
@@ -73,32 +94,35 @@ export async function POST(req: NextRequest) {
             line_items: lineItems,
             mode: 'payment',
             customer_email: customerEmail,
-            client_reference_id: orderId,
+            client_reference_id: order.id,
             metadata: {
-              orderId,
-              orderNumber,
+              orderId: order.id,
+              orderNumber: order.orderNumber,
               customerName: customerName || '',
               customerEmail,
               discountApplied: discountPercent.toString(),
             },
-            success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}&order_id=${orderId}`,
-            cancel_url: `${origin}/checkout?canceled=true&order_id=${orderId}`,
+            success_url: `${origin}/checkout/success?orderId=${order.id}&token=${order.orderAccessToken}`,
+            cancel_url: `${origin}/checkout?canceled=true&orderId=${order.id}&token=${order.orderAccessToken}`,
           };
 
           const session = await stripe.checkout.sessions.create(sessionParams);
 
           return NextResponse.json({
             success: true,
-            orderId,
-            orderNumber,
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            orderAccessToken: order.orderAccessToken,
             provider: 'stripe',
-            isSandbox: !isStripeLiveMode(),
+            isSandbox: order.isSandbox,
             stripeSessionId: session.id,
             checkoutUrl: session.url,
-            currency: currency || 'USD',
-            authoritativeTotal: totalUSD,
+            currency: order.currency,
+            authoritativeTotal: order.total,
             discountApplied: discountPercent,
-            customerEmail,
+            customerEmail: order.customerEmail,
+            paymentStatus: order.paymentStatus,
+            fulfillmentStatus: order.fulfillmentStatus,
             status: 'AWAITING_PAYMENT',
           });
         } catch (stripeErr: any) {
@@ -107,20 +131,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Default or Iraqi providers in Sandbox/Merchant Onboarding mode
     return NextResponse.json({
       success: true,
-      orderId,
-      orderNumber,
-      provider: paymentProvider,
-      isSandbox: true,
-      currency: currency || 'USD',
-      authoritativeTotal: currency === 'IQD' ? totalIQD : totalUSD,
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      orderAccessToken: order.orderAccessToken,
+      provider: provider,
+      isSandbox: order.isSandbox,
+      currency: order.currency,
+      authoritativeTotal: order.total,
       discountApplied: discountPercent,
-      customerEmail,
-      status: isIraqiProvider ? 'SANDBOX_PENDING_MERCHANT_ONBOARDING' : 'PAID_SANDBOX',
+      customerEmail: order.customerEmail,
+      paymentStatus: order.paymentStatus,
+      fulfillmentStatus: order.fulfillmentStatus,
+      status: isIraqiProvider ? 'SANDBOX_PENDING_MERCHANT_ONBOARDING' : 'AWAITING_PAYMENT',
       notice: isIraqiProvider
         ? 'Sandbox testing mode. Real transactions disabled until official merchant onboarding is completed.'
-        : undefined,
+        : 'Sandbox order created in PENDING status. Awaiting payment confirmation before digital key allocation.',
     });
   } catch (error: any) {
     console.error('Checkout error:', error);
