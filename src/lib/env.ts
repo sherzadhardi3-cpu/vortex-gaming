@@ -41,22 +41,22 @@ export function validateEnv(): { success: boolean; data?: Env; errors?: string[]
     return { success: false, errors: errorMessages };
   }
   
-  // Production security checks
-  if (result.data.NODE_ENV === 'production') {
-    const missingInProd: string[] = [];
+  // Production and Staging security checks
+  if (result.data.NODE_ENV === 'production' || result.data.APP_ENV === 'staging' || result.data.APP_ENV === 'production') {
+    const missingInEnv: string[] = [];
     if (!result.data.GAME_KEY_ENCRYPTION_KEY) {
-      missingInProd.push('GAME_KEY_ENCRYPTION_KEY is required in production');
+      missingInEnv.push('GAME_KEY_ENCRYPTION_KEY is required in production and staging');
     }
     if (!result.data.DATABASE_URL) {
-      missingInProd.push('DATABASE_URL is required in production');
+      missingInEnv.push('DATABASE_URL is required in production and staging');
     }
     if (result.data.AUTH_SECRET === 'vortex_default_dev_secret_replace_in_prod') {
-      missingInProd.push('AUTH_SECRET must be replaced with a secure production secret');
+      missingInEnv.push('AUTH_SECRET must be replaced with a secure secret in production and staging');
     }
     
-    if (missingInProd.length > 0) {
-      console.error('❌ Production security checks failed:', missingInProd);
-      return { success: false, errors: missingInProd };
+    if (missingInEnv.length > 0) {
+      console.error('❌ Environment security checks failed:', missingInEnv);
+      return { success: false, errors: missingInEnv };
     }
   }
   

@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { loginSchema } from '@/lib/validations';
 import { verifyPassword } from '@/lib/auth/password';
-import { getUserByEmail } from '@/lib/auth/user-store';
+import { getUserByEmail, recordPersistentSession } from '@/lib/auth/user-store';
 
 export async function POST(req: NextRequest) {
   try {
@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
 
     // Issue session token
     const token = `vtx_session_${Date.now()}_${Buffer.from(user.id).toString('base64')}`;
+    await recordPersistentSession(user.id, token, new Date(Date.now() + 86400 * 1000));
 
     return NextResponse.json({
       success: true,

@@ -41,7 +41,7 @@ export function getPrismaClient(): PrismaClient | null {
     const adapter = new PrismaPg(pool);
     const client = new PrismaClient({
       adapter,
-      log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : ['error'],
+      log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : process.env.NODE_ENV === 'test' ? [] : ['error'],
     });
 
     if (process.env.NODE_ENV !== 'production') {

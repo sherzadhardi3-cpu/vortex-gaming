@@ -7,8 +7,14 @@ import bcrypt from 'bcryptjs';
 
 let prisma = null;
 try {
+  const { PrismaPg } = await import('@prisma/adapter-pg');
   const { PrismaClient } = await import('@prisma/client');
-  prisma = new PrismaClient();
+  const pg = (await import('pg')).default;
+  if (process.env.DATABASE_URL) {
+    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+    const adapter = new PrismaPg(pool);
+    prisma = new PrismaClient({ adapter });
+  }
 } catch (e) {
   // Client not generated or database unconfigured
 }
@@ -52,8 +58,8 @@ async function seed() {
     for (const p of PLATFORMS) {
       await prisma.platform.upsert({
         where: { slug: p.slug },
-        update: { name: p.name, icon: p.icon },
-        create: { name: p.name, slug: p.slug, icon: p.icon },
+        update: { name: p.name, logoUrl: `/images/platforms/${p.slug}.svg` },
+        create: { name: p.name, slug: p.slug, logoUrl: `/images/platforms/${p.slug}.svg` },
       });
     }
 

@@ -1,4 +1,8 @@
-import { defineConfig, env } from 'prisma/config';
+// VORTEX GAMING — Prisma 7 Configuration
+// Manages migration datasource URLs and seeding configuration.
+// Requires DATABASE_URL explicitly — no unsafe localhost fallbacks in staging/production.
+
+import { defineConfig } from 'prisma/config';
 
 // Load environment variables if available
 if (typeof process.loadEnvFile === 'function') {
@@ -14,10 +18,12 @@ if (typeof process.loadEnvFile === 'function') {
   }
 }
 
+const databaseUrl = process.env.DATABASE_URL?.trim();
+
 export default defineConfig({
   schema: 'prisma/schema.prisma',
   datasource: {
-    url: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/vortex_gaming?schema=public',
+    url: databaseUrl || undefined,
   },
   migrations: {
     path: 'prisma/migrations',

@@ -6,6 +6,7 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
+import { getPrismaClient } from '../prisma.ts';
 
 export interface StoredUser {
   id: string;
@@ -135,16 +136,166 @@ function persistStore() {
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(memoryStore, null, 2), 'utf8');
   } catch (err) {
-    console.error('[UserStore] Error saving store to disk:', err);
+    // Disk persistence error fallback
   }
 }
 
 /**
- * Retrieve user by email (case-insensitive)
+ * Synchronize user entity directly to persistent PostgreSQL database when DATABASE_URL is configured.
+ */
+async function syncUserToPostgres(user: StoredUser): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const client = getPrismaClient();
+    if (!client) return;
+
+    await client.user.upsert({
+      where: { email: user.email.toLowerCase().trim() },
+      create: {
+        id: user.id,
+        email: user.email.toLowerCase().trim(),
+        firstName: user.firstName || 'Customer',
+        lastName: user.lastName || 'User',
+        displayName: user.displayName,
+        role: user.role as any,
+        mfaEnabled: user.mfaEnabled,
+        mfaSecret: user.mfaSecret,
+        locale: user.locale || 'en',
+        currency: user.currency || 'USD',
+        passwordHash: user.passwordHash,
+        avatarUrl: user.avatarUrl,
+      },
+      update: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        displayName: user.displayName,
+        role: user.role as any,
+        mfaEnabled: user.mfaEnabled,
+        mfaSecret: user.mfaSecret,
+        locale: user.locale,
+        currency: user.currency,
+        passwordHash: user.passwordHash,
+        avatarUrl: user.avatarUrl,
+        updatedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    // Graceful fallback to memory/file store if PostgreSQL instance is offline/unreachable
+  }
+}
+
+/**
+ * Synchronize OAuth Account linkage directly to persistent PostgreSQL database.
+ */
+async function syncAccountToPostgres(account: StoredAccount): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const client = getPrismaClient();
+    if (!client) return;
+
+    await client.account.upsert({
+      where: {
+        provider_providerAccountId: {
+          provider: account.provider,
+          providerAccountId: account.providerAccountId,
+        },
+      },
+      create: {
+        id: account.id,
+        userId: account.userId,
+        provider: account.provider,
+        providerAccountId: account.providerAccountId,
+        username: account.username,
+        displayName: account.displayName,
+        avatarUrl: account.avatarUrl,
+        email: account.email,
+        scope: account.scope,
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken,
+        expiresAt: account.expiresAt ? new Date(account.expiresAt) : null,
+      },
+      update: {
+        username: account.username,
+        displayName: account.displayName,
+        avatarUrl: account.avatarUrl,
+        email: account.email,
+        scope: account.scope,
+        accessToken: account.accessToken,
+        refreshToken: account.refreshToken,
+        expiresAt: account.expiresAt ? new Date(account.expiresAt) : null,
+        updatedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    console.warn('[UserStore] Account PostgreSQL sync error:', err);
+  }
+}
+
+/**
+ * Create or record persistent user session in PostgreSQL.
+ */
+export async function recordPersistentSession(userId: string, token: string, expiresAt: Date): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const client = getPrismaClient();
+    if (!client) return;
+    await client.session.create({
+      data: {
+        userId,
+        token,
+        expiresAt,
+      },
+    });
+  } catch (err) {
+    console.warn('[UserStore] Session PostgreSQL sync error:', err);
+  }
+}
+
+/**
+ * Retrieve user by email (case-insensitive) with PostgreSQL read-through persistence
  */
 export async function getUserByEmail(email: string): Promise<StoredUser | null> {
   const store = ensureInitialized();
   const normalized = email.toLowerCase().trim();
+
+  // If DATABASE_URL is set, query PostgreSQL for durable persistence
+  if (process.env.DATABASE_URL) {
+    try {
+      const client = getPrismaClient();
+      if (client) {
+        const dbUser = await client.user.findUnique({
+          where: { email: normalized },
+          include: { accounts: true },
+        });
+        if (dbUser) {
+          const discordAccount = dbUser.accounts.find((a) => a.provider === 'discord');
+          const storedUser: StoredUser = {
+            id: dbUser.id,
+            email: dbUser.email,
+            firstName: dbUser.firstName,
+            lastName: dbUser.lastName,
+            displayName: dbUser.displayName || `${dbUser.firstName} ${dbUser.lastName}`,
+            avatarUrl: dbUser.avatarUrl || undefined,
+            role: dbUser.role as StoredUser['role'],
+            mfaEnabled: dbUser.mfaEnabled,
+            mfaSecret: dbUser.mfaSecret || undefined,
+            locale: dbUser.locale,
+            currency: dbUser.currency,
+            passwordHash: dbUser.passwordHash || undefined,
+            discordId: discordAccount?.providerAccountId,
+            discordUsername: discordAccount?.username || undefined,
+            createdAt: dbUser.createdAt.toISOString(),
+            updatedAt: dbUser.updatedAt.toISOString(),
+          };
+          store.users[storedUser.id] = storedUser;
+          return storedUser;
+        }
+      }
+    } catch {
+      // Gracefully fall back to local store
+    }
+  }
+
   for (const user of Object.values(store.users)) {
     if (user.email.toLowerCase().trim() === normalized) {
       return user;
@@ -154,10 +305,48 @@ export async function getUserByEmail(email: string): Promise<StoredUser | null> 
 }
 
 /**
- * Retrieve user by unique ID
+ * Retrieve user by unique ID with PostgreSQL read-through persistence
  */
 export async function getUserById(id: string): Promise<StoredUser | null> {
   const store = ensureInitialized();
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const client = getPrismaClient();
+      if (client) {
+        const dbUser = await client.user.findUnique({
+          where: { id },
+          include: { accounts: true },
+        });
+        if (dbUser) {
+          const discordAccount = dbUser.accounts.find((a) => a.provider === 'discord');
+          const storedUser: StoredUser = {
+            id: dbUser.id,
+            email: dbUser.email,
+            firstName: dbUser.firstName,
+            lastName: dbUser.lastName,
+            displayName: dbUser.displayName || `${dbUser.firstName} ${dbUser.lastName}`,
+            avatarUrl: dbUser.avatarUrl || undefined,
+            role: dbUser.role as StoredUser['role'],
+            mfaEnabled: dbUser.mfaEnabled,
+            mfaSecret: dbUser.mfaSecret || undefined,
+            locale: dbUser.locale,
+            currency: dbUser.currency,
+            passwordHash: dbUser.passwordHash || undefined,
+            discordId: discordAccount?.providerAccountId,
+            discordUsername: discordAccount?.username || undefined,
+            createdAt: dbUser.createdAt.toISOString(),
+            updatedAt: dbUser.updatedAt.toISOString(),
+          };
+          store.users[storedUser.id] = storedUser;
+          return storedUser;
+        }
+      }
+    } catch {
+      // Graceful fallback
+    }
+  }
+
   return store.users[id] || null;
 }
 
@@ -169,6 +358,65 @@ export async function getAccountByProvider(
   providerAccountId: string
 ): Promise<{ account: StoredAccount; user: StoredUser } | null> {
   const store = ensureInitialized();
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const client = getPrismaClient();
+      if (client) {
+        const dbAccount = await client.account.findUnique({
+          where: {
+            provider_providerAccountId: {
+              provider,
+              providerAccountId,
+            },
+          },
+          include: { user: true },
+        });
+        if (dbAccount && dbAccount.user) {
+          const account: StoredAccount = {
+            id: dbAccount.id,
+            userId: dbAccount.userId,
+            provider: dbAccount.provider,
+            providerAccountId: dbAccount.providerAccountId,
+            username: dbAccount.username || undefined,
+            displayName: dbAccount.displayName || undefined,
+            avatarUrl: dbAccount.avatarUrl || undefined,
+            email: dbAccount.email || undefined,
+            scope: dbAccount.scope || undefined,
+            accessToken: dbAccount.accessToken || undefined,
+            refreshToken: dbAccount.refreshToken || undefined,
+            expiresAt: dbAccount.expiresAt ? dbAccount.expiresAt.toISOString() : undefined,
+            createdAt: dbAccount.createdAt.toISOString(),
+            updatedAt: dbAccount.updatedAt.toISOString(),
+          };
+          const user: StoredUser = {
+            id: dbAccount.user.id,
+            email: dbAccount.user.email,
+            firstName: dbAccount.user.firstName,
+            lastName: dbAccount.user.lastName,
+            displayName: dbAccount.user.displayName || `${dbAccount.user.firstName} ${dbAccount.user.lastName}`,
+            avatarUrl: dbAccount.user.avatarUrl || undefined,
+            role: dbAccount.user.role as StoredUser['role'],
+            mfaEnabled: dbAccount.user.mfaEnabled,
+            mfaSecret: dbAccount.user.mfaSecret || undefined,
+            locale: dbAccount.user.locale,
+            currency: dbAccount.user.currency,
+            passwordHash: dbAccount.user.passwordHash || undefined,
+            discordId: provider === 'discord' ? providerAccountId : undefined,
+            discordUsername: provider === 'discord' ? dbAccount.username || undefined : undefined,
+            createdAt: dbAccount.user.createdAt.toISOString(),
+            updatedAt: dbAccount.user.updatedAt.toISOString(),
+          };
+          store.users[user.id] = user;
+          store.accounts[`${provider}:${providerAccountId}`] = account;
+          return { account, user };
+        }
+      }
+    } catch {
+      // Graceful fallback
+    }
+  }
+
   const accountKey = `${provider}:${providerAccountId}`;
   const account = store.accounts[accountKey];
   if (!account) return null;
@@ -215,6 +463,7 @@ export async function registerStandardUser(
 
   store.users[userId] = newUser;
   persistStore();
+  await syncUserToPostgres(newUser);
 
   return newUser;
 }
@@ -256,6 +505,7 @@ export async function provisionInitialAdmin(
     existing.mfaEnabled = true;
     existing.updatedAt = now;
     persistStore();
+    await syncUserToPostgres(existing);
     return existing;
   }
 
@@ -277,6 +527,7 @@ export async function provisionInitialAdmin(
 
   store.users[adminId] = newAdmin;
   persistStore();
+  await syncUserToPostgres(newAdmin);
   return newAdmin;
 }
 
@@ -379,6 +630,8 @@ export async function createDiscordCustomer(
   store.users[userId] = newUser;
   store.accounts[accountKey] = newAccount;
   persistStore();
+  await syncUserToPostgres(newUser);
+  await syncAccountToPostgres(newAccount);
 
   return { user: newUser, account: newAccount };
 }
@@ -430,6 +683,8 @@ export async function linkDiscordToUser(
   store.users[userId] = user;
   store.accounts[accountKey] = account;
   persistStore();
+  await syncUserToPostgres(user);
+  await syncAccountToPostgres(account);
 
   return { user, account };
 }

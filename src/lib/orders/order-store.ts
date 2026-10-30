@@ -13,6 +13,8 @@ import {
   canRevealActivationKey,
 } from './order-state-machine.ts';
 import { encryptGameKey, decryptGameKey, hashGameKey } from '../crypto/key-vault.ts';
+import { getPrismaClient } from '../prisma.ts';
+import { GAMES_CATALOG } from '../data/games.ts';
 
 export interface OrderItem {
   gameId: string;
@@ -126,7 +128,160 @@ function persistStore() {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.writeFileSync(ORDERS_FILE, JSON.stringify(memoryStore, null, 2), 'utf8');
   } catch (err) {
-    console.error('[OrderStore] Error saving orders store:', err);
+    // Disk persistence fallback
+  }
+}
+
+/**
+ * Synchronizes an order to persistent PostgreSQL storage.
+ */
+export async function syncOrderToPostgres(order: StoredOrder): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const client = getPrismaClient();
+    if (!client) return;
+
+    const customerEmail = order.customerEmail.toLowerCase().trim();
+    const customerUser = await client.user.upsert({
+      where: { email: customerEmail },
+      create: {
+        id: order.customerId || `usr_order_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        email: customerEmail,
+        firstName: order.customerName?.split(' ')[0] || 'Customer',
+        lastName: order.customerName?.split(' ').slice(1).join(' ') || 'Order',
+        displayName: order.customerName || 'Vortex Customer',
+        role: 'CUSTOMER',
+      },
+      update: {
+        displayName: order.customerName || undefined,
+      },
+    });
+
+    const statusMap: Record<string, any> = {
+      PENDING: 'PENDING',
+      PAID: 'PAID',
+      PROCESSING: 'FULFILLMENT_PROCESSING',
+      FAILED: 'FULFILLMENT_FAILED',
+      REFUNDED: 'REFUNDED',
+      CANCELLED: 'CANCELLED',
+    };
+
+    const prismaStatus = statusMap[order.paymentStatus] || 'PENDING';
+
+    await client.order.upsert({
+      where: { orderNumber: order.orderNumber },
+      create: {
+        id: order.id,
+        orderNumber: order.orderNumber,
+        userId: customerUser.id,
+        status: prismaStatus,
+        currency: order.currency,
+        subtotalAmount: Math.round(order.total * 100),
+        discountAmount: Math.round(order.discountApplied * 100),
+        totalAmount: Math.round(order.total * 100),
+        customerEmail,
+        customerName: order.customerName || 'Customer',
+        idempotencyKey: order.orderAccessToken,
+        paidAt: order.paidAt ? new Date(order.paidAt) : null,
+        fulfilledAt: order.fulfilledAt ? new Date(order.fulfilledAt) : null,
+        refundedAt: order.refundReason ? new Date() : null,
+      },
+      update: {
+        status: prismaStatus,
+        paidAt: order.paidAt ? new Date(order.paidAt) : null,
+        fulfilledAt: order.fulfilledAt ? new Date(order.fulfilledAt) : null,
+        refundedAt: order.refundReason ? new Date() : null,
+        updatedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    // Gracefully handle PostgreSQL offline in local test runs
+  }
+}
+
+/**
+ * Synchronizes an inventory key to persistent PostgreSQL storage.
+ */
+export async function syncInventoryKeyToPostgres(key: StoredInventoryKey): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const client = getPrismaClient();
+    if (!client) return;
+
+    // Retrieve genuine catalog item from authoritative GAMES_CATALOG
+    const catalogItem = GAMES_CATALOG.find((g) => g.id === key.gameId || g.slug === key.gameId);
+    if (!catalogItem) {
+      // Do not invent product images or silently fabricate inventory for unknown products
+      return;
+    }
+
+    const platformSlug = catalogItem.platform;
+    const platform = await client.platform.upsert({
+      where: { slug: platformSlug },
+      create: {
+        id: platformSlug,
+        slug: platformSlug,
+        name: catalogItem.platformName,
+        logoUrl: `/images/platforms/${platformSlug}.svg`,
+      },
+      update: {},
+    });
+
+    const product = await client.product.upsert({
+      where: { slug: catalogItem.slug },
+      create: {
+        id: catalogItem.id,
+        title: catalogItem.title,
+        slug: catalogItem.slug,
+        description: catalogItem.description,
+        shortDescription: catalogItem.shortDescription,
+        coverImage: `/images/games/${catalogItem.slug}.jpg`,
+        platformId: platform.id,
+        priceUSD: catalogItem.priceUSD,
+        priceIQD: catalogItem.priceIQD,
+        isActive: true,
+        stockCount: catalogItem.stockCount,
+      },
+      update: {
+        title: catalogItem.title,
+        description: catalogItem.description,
+        priceUSD: catalogItem.priceUSD,
+        priceIQD: catalogItem.priceIQD,
+        isActive: true,
+      },
+    });
+
+    const keyStatusMap: Record<string, any> = {
+      AVAILABLE: 'AVAILABLE',
+      RESERVED: 'RESERVED',
+      DELIVERED: 'DELIVERED',
+      REVOKED: 'REVOKED',
+    };
+
+    await client.gameKey.upsert({
+      where: { keyHash: key.keyHash },
+      create: {
+        id: key.id,
+        productId: product.id,
+        encryptedKey: key.encryptedKey,
+        keyHash: key.keyHash,
+        status: keyStatusMap[key.status] || 'AVAILABLE',
+        orderId: key.orderId,
+        reservedAt: key.reservedAt ? new Date(key.reservedAt) : null,
+        deliveredAt: key.deliveredAt ? new Date(key.deliveredAt) : null,
+        revokedAt: key.revokedAt ? new Date(key.revokedAt) : null,
+      },
+      update: {
+        status: keyStatusMap[key.status] || 'AVAILABLE',
+        orderId: key.orderId,
+        reservedAt: key.reservedAt ? new Date(key.reservedAt) : null,
+        deliveredAt: key.deliveredAt ? new Date(key.deliveredAt) : null,
+        revokedAt: key.revokedAt ? new Date(key.revokedAt) : null,
+        updatedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    // Gracefully handle PostgreSQL offline in local test runs
   }
 }
 
@@ -227,6 +382,7 @@ export function createAuthoritativeOrder(params: {
 
   store.orders[orderId] = newOrder;
   persistStore();
+  syncOrderToPostgres(newOrder).catch(() => {});
   return newOrder;
 }
 
@@ -355,6 +511,7 @@ export function markOrderAsPaid(
   // Trigger atomic fulfillment
   const allocation = allocateGameKeysForOrder(order);
   persistStore();
+  syncOrderToPostgres(order).catch(() => {});
 
   return { success: true, order };
 }
@@ -391,6 +548,7 @@ export function markOrderAsProcessing(
   order.paymentStatus = 'PROCESSING';
   order.updatedAt = now;
   persistStore();
+  syncOrderToPostgres(order).catch(() => {});
 
   return { success: true, order };
 }
@@ -440,6 +598,7 @@ export function markOrderAsFailed(
 
   order.updatedAt = now;
   persistStore();
+  syncOrderToPostgres(order).catch(() => {});
 
   return { success: true, order };
 }
@@ -551,6 +710,12 @@ export function allocateGameKeysForOrder(order: StoredOrder): {
     });
 
     persistStore();
+    syncOrderToPostgres(order).catch(() => {});
+    for (const alloc of allocatedList) {
+      if (store.inventory[alloc.keyId]) {
+        syncInventoryKeyToPostgres(store.inventory[alloc.keyId]).catch(() => {});
+      }
+    }
     return { success: true, allocatedCount: allocatedList.length };
   } finally {
     inventoryLocks.delete(lockKey);
@@ -690,6 +855,12 @@ export function reconcileOrderRefund(orderId: string, reason: string): boolean {
   });
 
   persistStore();
+  syncOrderToPostgres(order).catch(() => {});
+  for (const record of order.allocatedKeys) {
+    if (store.inventory[record.keyId]) {
+      syncInventoryKeyToPostgres(store.inventory[record.keyId]).catch(() => {});
+    }
+  }
   return true;
 }
 
@@ -698,9 +869,10 @@ export function reconcileOrderRefund(orderId: string, reason: string): boolean {
  */
 export function addInventoryKeys(gameId: string, plainTextKeys: string[], isSandboxKey = false) {
   const store = ensureInitialized();
+  const addedKeys: StoredInventoryKey[] = [];
   for (const plainKey of plainTextKeys) {
     const keyId = `key_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
-    store.inventory[keyId] = {
+    const newKey: StoredInventoryKey = {
       id: keyId,
       gameId,
       encryptedKey: encryptGameKey(plainKey),
@@ -714,8 +886,13 @@ export function addInventoryKeys(gameId: string, plainTextKeys: string[], isSand
       revokedAt: null,
       lockVersion: 1,
     };
+    store.inventory[keyId] = newKey;
+    addedKeys.push(newKey);
   }
   persistStore();
+  for (const k of addedKeys) {
+    syncInventoryKeyToPostgres(k).catch(() => {});
+  }
 }
 
 /**

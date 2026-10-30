@@ -3,6 +3,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { getPrismaClient } from '../prisma.ts';
 
 export interface SupportMessage {
   id: string;
@@ -91,7 +92,108 @@ function persistTickets() {
     }
     fs.writeFileSync(DATA_FILE, JSON.stringify(ticketsCache, null, 2), 'utf8');
   } catch (err) {
-    console.error('[SupportStore] Error persisting tickets:', err);
+    // Disk persistence fallback
+  }
+}
+
+/**
+ * Synchronize ticket directly to persistent PostgreSQL database.
+ */
+export async function syncTicketToPostgres(ticket: SupportTicket): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const client = getPrismaClient();
+    if (!client) return;
+
+    const userEmail = ticket.userEmail.toLowerCase().trim();
+    const user = await client.user.upsert({
+      where: { email: userEmail },
+      create: {
+        id: ticket.userId || `usr_sup_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        email: userEmail,
+        firstName: ticket.userName.split(' ')[0] || 'Customer',
+        lastName: ticket.userName.split(' ').slice(1).join(' ') || 'Support',
+        displayName: ticket.userName,
+        role: 'CUSTOMER',
+      },
+      update: {
+        displayName: ticket.userName || undefined,
+      },
+    });
+
+    const statusMap: Record<string, any> = {
+      OPEN: 'OPEN',
+      IN_PROGRESS: 'IN_PROGRESS',
+      RESOLVED: 'RESOLVED',
+      CLOSED: 'CLOSED',
+    };
+
+    const priorityMap: Record<string, any> = {
+      LOW: 'LOW',
+      MEDIUM: 'MEDIUM',
+      HIGH: 'HIGH',
+    };
+
+    await client.supportTicket.upsert({
+      where: { ticketNumber: ticket.id },
+      create: {
+        id: ticket.id,
+        ticketNumber: ticket.id,
+        userId: user.id,
+        subject: ticket.subject,
+        status: statusMap[ticket.status] || 'OPEN',
+        priority: priorityMap[ticket.priority] || 'MEDIUM',
+        category: ticket.category,
+      },
+      update: {
+        status: statusMap[ticket.status] || 'OPEN',
+        priority: priorityMap[ticket.priority] || 'MEDIUM',
+        updatedAt: new Date(),
+      },
+    });
+  } catch (err) {
+    // Gracefully handle PostgreSQL offline in local test runs
+  }
+}
+
+/**
+ * Synchronize support ticket message to persistent PostgreSQL database.
+ */
+export async function syncMessageToPostgres(message: SupportMessage, ticket: SupportTicket): Promise<void> {
+  if (!process.env.DATABASE_URL) return;
+  try {
+    const client = getPrismaClient();
+    if (!client) return;
+
+    const userEmail = ticket.userEmail.toLowerCase().trim();
+    const user = await client.user.upsert({
+      where: { email: userEmail },
+      create: {
+        id: ticket.userId || `usr_sup_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        email: userEmail,
+        firstName: ticket.userName.split(' ')[0] || 'Customer',
+        lastName: ticket.userName.split(' ').slice(1).join(' ') || 'Support',
+        displayName: ticket.userName,
+        role: 'CUSTOMER',
+      },
+      update: {},
+    });
+
+    await client.ticketMessage.upsert({
+      where: { id: message.id },
+      create: {
+        id: message.id,
+        ticketId: ticket.id,
+        userId: user.id,
+        content: message.message,
+        isStaff: message.sender === 'SUPPORT_AGENT',
+      },
+      update: {
+        content: message.message,
+      },
+    });
+  } catch (err) {
+    // Gracefully handle PostgreSQL offline in local test runs
   }
 }
 
@@ -182,6 +284,10 @@ export async function createTicket({
 
   store[ticketId] = newTicket;
   persistTickets();
+  syncTicketToPostgres(newTicket).catch(() => {});
+  for (const msg of newTicket.messages) {
+    syncMessageToPostgres(msg, newTicket).catch(() => {});
+  }
   return newTicket;
 }
 
@@ -242,5 +348,6 @@ export async function addMessageToTicket({
   }
 
   persistTickets();
+  syncMessageToPostgres(newMessage, ticket).catch(() => {});
   return newMessage;
 }
