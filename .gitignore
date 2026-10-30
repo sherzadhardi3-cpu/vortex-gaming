@@ -1,0 +1,81 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js build outputs
+/.next/
+/out/
+/build
+
+# environment configuration files (NEVER COMMIT REAL SECRETS)
+.env
+.env*.local
+.env.local
+.env.development
+.env.test
+.env.production
+.env.staging
+.env*
+!.env.example
+!.env.staging.example
+!.env.production.example
+
+# persistent local data stores & customer records (NEVER COMMIT PII)
+/.data/
+.data/
+*.data
+auth-store.json
+fulfillments.json
+newsletter-subscribers.json
+processed-webhooks.json
+support-tickets.json
+
+# database dumps & automated backup archives (NEVER COMMIT DATA)
+/backups/
+backups/
+*.dump
+*.sql
+!prisma/migrations/**/*.sql
+*.zip
+*.tar.gz
+*.bak
+
+# cryptographic certificates & key pairs
+*.pem
+*.key
+*.crt
+*.cert
+*.pfx
+*.p12
+
+# debug & process logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# system & editor artifacts
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

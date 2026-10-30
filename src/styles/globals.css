@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+/* VORTEX GAMING — Design Tokens */
+:root {
+  /* Core brand colors */
+  --vortex-bg-primary: #0a0a0f;
+  --vortex-bg-secondary: #12121a;
+  --vortex-bg-card: #1a1a2e;
+  --vortex-bg-elevated: #242438;
+  --vortex-bg-glass: rgba(26, 26, 46, 0.7);
+  
+  /* Accent colors */
+  --vortex-accent-blue: #00d4ff;
+  --vortex-accent-purple: #7c3aed;
+  --vortex-accent-blue-glow: rgba(0, 212, 255, 0.15);
+  --vortex-accent-purple-glow: rgba(124, 58, 237, 0.15);
+  
+  /* Text */
+  --vortex-text-primary: #f0f0f5;
+  --vortex-text-secondary: #a0a0b8;
+  --vortex-text-muted: #6b6b80;
+  
+  /* Borders */
+  --vortex-border: rgba(255, 255, 255, 0.08);
+  --vortex-border-hover: rgba(0, 212, 255, 0.3);
+  
+  /* Status */
+  --vortex-success: #22c55e;
+  --vortex-warning: #f59e0b;
+  --vortex-error: #ef4444;
+  --vortex-info: #3b82f6;
+  
+  /* Spacing scale */
+  --vortex-radius: 0.75rem;
+  --vortex-radius-lg: 1rem;
+  --vortex-radius-xl: 1.5rem;
+}
+
+/* Custom animations */
+@keyframes vortex-glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes vortex-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes vortex-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes vortex-pulse-border {
+  0%, 100% { border-color: rgba(0, 212, 255, 0.2); }
+  50% { border-color: rgba(0, 212, 255, 0.5); }
+}
+
+/* Utility classes */
+.vortex-glass {
+  background: var(--vortex-bg-glass);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--vortex-border);
+}
+
+.vortex-glow-blue {
+  box-shadow: 0 0 20px var(--vortex-accent-blue-glow),
+              0 0 60px var(--vortex-accent-blue-glow);
+}
+
+.vortex-glow-purple {
+  box-shadow: 0 0 20px var(--vortex-accent-purple-glow),
+              0 0 60px var(--vortex-accent-purple-glow);
+}
+
+.vortex-gradient-text {
+  background: linear-gradient(135deg, var(--vortex-accent-blue), var(--vortex-accent-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.vortex-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--vortex-bg-card) 25%,
+    var(--vortex-bg-elevated) 50%,
+    var(--vortex-bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: vortex-shimmer 1.5s ease-in-out infinite;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--vortex-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--vortex-bg-elevated);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--vortex-accent-blue);
+}
+
+/* Global styles */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--vortex-bg-primary);
+  color: var(--vortex-text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+/* Selection color */
+::selection {
+  background: rgba(0, 212, 255, 0.3);
+  color: #fff;
+}
+
+/* RTL support */
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .font-mono {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+[dir="rtl"] input[type="text"],
+[dir="rtl"] input[type="email"],
+[dir="rtl"] input[type="password"],
+[dir="rtl"] textarea {
+  text-align: right;
+}

@@ -1,0 +1,705 @@
+// VORTEX GAMING — Database Schema
+// PostgreSQL with Prisma ORM
+// All monetary values stored as integers (minor currency units) to prevent floating-point errors
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── ENUMS ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  CUSTOMER
+  SUPPORT_AGENT
+  PRODUCT_MANAGER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  FULFILLMENT_PROCESSING
+  FULFILLED
+  FULFILLMENT_FAILED
+  REFUND_REQUESTED
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  DISPUTED
+}
+
+enum KeyStatus {
+  AVAILABLE
+  RESERVED
+  DELIVERED
+  REVOKED
+}
+
+enum FulfillmentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRY_SCHEDULED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  AWAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  FAILED_LOGIN
+  PASSWORD_CHANGE
+  KEY_IMPORT
+  KEY_DELIVERY
+  KEY_REVOKE
+  ORDER_CREATE
+  ORDER_PAID
+  ORDER_REFUND
+  PAYMENT_RECEIVED
+  PAYMENT_FAILED
+  ADMIN_ACTION
+  SECURITY_EVENT
+  SETTINGS_CHANGE
+}
+
+// ─── USER & AUTH ─────────────────────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  emailVerified     DateTime?
+  emailVerifyToken  String?
+  passwordHash      String?
+  firstName         String
+  lastName          String
+  displayName       String?
+  avatarUrl         String?
+  role              UserRole  @default(CUSTOMER)
+  mfaEnabled        Boolean   @default(false)
+  mfaSecret         String?   // Encrypted TOTP secret
+  locale            String    @default("en")
+  currency          String    @default("USD")
+  isActive          Boolean   @default(true)
+  isBanned          Boolean   @default(false)
+  banReason         String?
+  failedLoginCount  Int       @default(0)
+  lockedUntil       DateTime?
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sessions       Session[]
+  accounts       Account[]
+  orders         Order[]
+  cartItems      CartItem[]
+  wishlistItems  WishlistItem[]
+  reviews        Review[]
+  tickets        SupportTicket[]
+  ticketMessages TicketMessage[]
+  auditLogs      AuditLog[]      @relation("AuditUser")
+  auditActions   AuditLog[]      @relation("AuditActor")
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  token        String   @unique
+  ipAddress    String?
+  userAgent    String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  lastActiveAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Account {
+  id                String    @id @default(cuid())
+  userId            String
+  provider          String    // e.g. "discord"
+  providerAccountId String    // Discord snowflake user ID
+  username          String?   // Discord handle
+  displayName       String?   // Discord global display name
+  avatarUrl         String?   // Discord avatar image URL
+  email             String?   // Email returned from Discord
+  scope             String?   // "identify email"
+  accessToken       String?   // OAuth access token (stored server-side)
+  refreshToken      String?   // OAuth refresh token
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@index([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// ─── PLATFORM & PRODUCT ─────────────────────────────────────────────────────
+
+model Platform {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  logoUrl     String?
+  bannerUrl   String?
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products Product[]
+
+  @@map("platforms")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  parentId  String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products ProductCategory[]
+
+  @@map("categories")
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  title             String
+  slug              String   @unique
+  description       String
+  shortDescription  String?
+  coverImage        String
+  platformId        String
+  publisher         String?
+  developer         String?
+  releaseDate       DateTime?
+  genre             String[]
+  tags              String[]
+
+  // Pricing — stored as integer minor units (e.g., cents for USD, fils for IQD)
+  priceUSD          Int      // Price in USD cents
+  priceIQD          Int      // Price in IQD fils (or smallest unit)
+  originalPriceUSD  Int?     // Original price before discount, USD cents
+  originalPriceIQD  Int?     // Original price before discount, IQD
+  discountPercent   Int?     // Discount percentage (0-100)
+
+  // Metadata
+  activationRegion  String   @default("GLOBAL")
+  activationType    String   @default("KEY") // KEY, CODE, GIFT_CARD, SUBSCRIPTION
+  productType       String   @default("GAME") // GAME, DLC, GIFT_CARD, SUBSCRIPTION, BUNDLE
+  systemRequirements Json?
+  activationGuide   String?
+
+  // Status
+  isActive          Boolean  @default(true)
+  isFeatured        Boolean  @default(false)
+  isTrending        Boolean  @default(false)
+  isNewRelease      Boolean  @default(false)
+  isBestSeller      Boolean  @default(false)
+  isDeal            Boolean  @default(false)
+
+  // Refund
+  refundEligible    Boolean  @default(true)
+  refundPolicyNote  String?
+
+  // Stock - denormalized for performance, authoritative count from GameKey table
+  stockCount        Int      @default(0)
+
+  // SEO
+  metaTitle         String?
+  metaDescription   String?
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  platform      Platform          @relation(fields: [platformId], references: [id])
+  categories    ProductCategory[]
+  images        ProductImage[]
+  gameKeys      GameKey[]
+  orderItems    OrderItem[]
+  cartItems     CartItem[]
+  wishlistItems WishlistItem[]
+  reviews       Review[]
+  translations  ProductTranslation[]
+
+  @@index([slug])
+  @@index([platformId])
+  @@index([isActive, isFeatured])
+  @@index([isActive, isTrending])
+  @@index([isActive, isNewRelease])
+  @@index([isActive, isDeal])
+  @@index([priceUSD])
+  @@index([createdAt])
+  @@index([title])
+  @@map("products")
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  url       String
+  alt       String?
+  sortOrder Int      @default(0)
+  isScreenshot Boolean @default(false)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+model ProductCategory {
+  productId  String
+  categoryId String
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([productId, categoryId])
+  @@map("product_categories")
+}
+
+model ProductTranslation {
+  id               String  @id @default(cuid())
+  productId        String
+  locale           String  // "en", "ku", "ar"
+  title            String
+  description      String
+  shortDescription String?
+  activationGuide  String?
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, locale])
+  @@map("product_translations")
+}
+
+// ─── GAME KEY VAULT ──────────────────────────────────────────────────────────
+// Keys are encrypted at rest with AES-256-GCM
+// The encryptedKey field contains: IV + AuthTag + Ciphertext (base64)
+
+model GameKey {
+  id            String    @id @default(cuid())
+  productId     String
+  encryptedKey  String    // AES-256-GCM encrypted, base64-encoded
+  keyHash       String    @unique // SHA-256 hash for dedup without decrypting
+  status        KeyStatus @default(AVAILABLE)
+  orderId       String?   // Set when RESERVED or DELIVERED
+  orderItemId   String?
+  reservedAt    DateTime?
+  deliveredAt   DateTime?
+  revokedAt     DateTime?
+  revokeReason  String?
+  importBatchId String?
+  importedBy    String?   // Admin user ID who imported
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  product   Product    @relation(fields: [productId], references: [id])
+  order     Order?     @relation(fields: [orderId], references: [id])
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id])
+
+  @@index([productId, status])
+  @@index([orderId])
+  @@index([status])
+  @@index([importBatchId])
+  @@map("game_keys")
+}
+
+// ─── CART ────────────────────────────────────────────────────────────────────
+
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("cart_items")
+}
+
+// ─── ORDER ───────────────────────────────────────────────────────────────────
+
+model Order {
+  id              String      @id @default(cuid())
+  orderNumber     String      @unique // Human-readable order number
+  userId          String
+  status          OrderStatus @default(PENDING)
+  currency        String      @default("USD")
+  subtotalAmount  Int         // Minor currency units
+  discountAmount  Int         @default(0)
+  totalAmount     Int         // Authoritative total, server-calculated
+  couponId        String?
+  couponCode      String?
+
+  // Customer snapshot at time of order
+  customerEmail   String
+  customerName    String
+
+  // Fraud review
+  isFlagged       Boolean     @default(false)
+  flagReason      String?
+  reviewedBy      String?
+  reviewedAt      DateTime?
+
+  // Idempotency
+  idempotencyKey  String?     @unique
+
+  paidAt          DateTime?
+  fulfilledAt     DateTime?
+  cancelledAt     DateTime?
+  refundedAt      DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  user            User        @relation(fields: [userId], references: [id])
+  coupon          Coupon?     @relation(fields: [couponId], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
+  fulfillments    Fulfillment[]
+  refunds         Refund[]
+  gameKeys        GameKey[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id            String   @id @default(cuid())
+  orderId       String
+  productId     String
+  productTitle  String   // Snapshot at time of order
+  platformName  String   // Snapshot
+  quantity      Int
+  unitPrice     Int      // Minor units, server-authoritative
+  totalPrice    Int      // unitPrice * quantity
+  currency      String
+
+  createdAt     DateTime @default(now())
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product  Product   @relation(fields: [productId], references: [id])
+  gameKeys GameKey[]
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+// ─── PAYMENT ─────────────────────────────────────────────────────────────────
+
+model Payment {
+  id                String        @id @default(cuid())
+  orderId           String
+  provider          String        // "stripe", "fib", "fastpay", "qi_card"
+  providerPaymentId String?       // External payment ID from provider
+  status            PaymentStatus @default(PENDING)
+  amount            Int           // Minor units
+  currency          String
+  method            String?       // "card", "mobile_wallet", etc.
+
+  // Provider metadata (non-sensitive)
+  providerMeta      Json?
+
+  // Idempotency
+  idempotencyKey    String?       @unique
+
+  // Webhook tracking
+  lastWebhookAt     DateTime?
+  webhookEventId    String?       @unique // Prevent replay
+
+  paidAt            DateTime?
+  failedAt          DateTime?
+  refundedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  order  Order          @relation(fields: [orderId], references: [id])
+  events PaymentEvent[]
+
+  @@index([orderId])
+  @@index([providerPaymentId])
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentEvent {
+  id        String   @id @default(cuid())
+  paymentId String
+  eventType String   // "created", "processing", "succeeded", "failed", "refunded"
+  provider  String
+  eventData Json?    // Non-sensitive event data
+  eventId   String?  @unique // Provider's event ID for dedup
+  createdAt DateTime @default(now())
+
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@map("payment_events")
+}
+
+// ─── FULFILLMENT ─────────────────────────────────────────────────────────────
+
+model Fulfillment {
+  id            String            @id @default(cuid())
+  orderId       String
+  status        FulfillmentStatus @default(PENDING)
+  attemptCount  Int               @default(0)
+  maxAttempts   Int               @default(3)
+  lastAttemptAt DateTime?
+  nextRetryAt   DateTime?
+  errorMessage  String?
+  completedAt   DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@index([status])
+  @@index([nextRetryAt])
+  @@map("fulfillments")
+}
+
+// ─── COUPON ──────────────────────────────────────────────────────────────────
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  description     String?
+  discountType    String    // "percentage", "fixed_usd", "fixed_iqd"
+  discountValue   Int       // Percentage (0-100) or fixed amount in minor units
+  minOrderAmount  Int?      // Minimum order amount in minor units
+  maxUses         Int?      // null = unlimited
+  currentUses     Int       @default(0)
+  maxUsesPerUser  Int       @default(1)
+  validFrom       DateTime  @default(now())
+  validUntil      DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  orders Order[]
+
+  @@index([code])
+  @@map("coupons")
+}
+
+// ─── REFUND ──────────────────────────────────────────────────────────────────
+
+model Refund {
+  id              String   @id @default(cuid())
+  orderId         String
+  amount          Int      // Minor units
+  currency        String
+  reason          String
+  status          String   @default("pending") // pending, approved, rejected, processed
+  processedBy     String?  // Admin user ID
+  processedAt     DateTime?
+  providerRefundId String? // External refund ID
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@map("refunds")
+}
+
+// ─── WISHLIST ────────────────────────────────────────────────────────────────
+
+model WishlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@map("wishlist_items")
+}
+
+// ─── REVIEWS ─────────────────────────────────────────────────────────────────
+
+model Review {
+  id          String   @id @default(cuid())
+  userId      String
+  productId   String
+  rating      Int      // 1-5
+  title       String?
+  content     String?
+  isVerified  Boolean  @default(false) // Verified purchase
+  isApproved  Boolean  @default(false) // Moderation
+  isReported  Boolean  @default(false)
+  moderatedBy String?
+  moderatedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId, isApproved])
+  @@map("reviews")
+}
+
+// ─── SUPPORT ─────────────────────────────────────────────────────────────────
+
+model SupportTicket {
+  id          String         @id @default(cuid())
+  ticketNumber String        @unique
+  userId      String
+  subject     String
+  status      TicketStatus   @default(OPEN)
+  priority    TicketPriority @default(MEDIUM)
+  category    String?        // "order", "payment", "activation", "refund", "account", "other"
+  orderId     String?        // Related order if applicable
+  assignedTo  String?        // Support agent user ID
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  user     User             @relation(fields: [userId], references: [id])
+  messages TicketMessage[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([ticketNumber])
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  userId    String
+  content   String
+  isStaff   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+// ─── AUDIT & SECURITY ────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String      @id @default(cuid())
+  action     AuditAction
+  entityType String?     // "user", "order", "payment", "game_key", etc.
+  entityId   String?
+  actorId    String?     // Who performed the action
+  userId     String?     // Who was affected
+  ipAddress  String?
+  userAgent  String?
+  details    Json?       // Non-sensitive action details
+  createdAt  DateTime    @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id])
+  user  User? @relation("AuditUser", fields: [userId], references: [id])
+
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SecurityEvent {
+  id        String   @id @default(cuid())
+  eventType String   // "brute_force", "suspicious_login", "account_lockout", etc.
+  severity  String   // "low", "medium", "high", "critical"
+  ipAddress String?
+  userId    String?
+  details   Json?
+  resolved  Boolean  @default(false)
+  resolvedBy String?
+  resolvedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([eventType])
+  @@index([severity])
+  @@index([createdAt])
+  @@index([resolved])
+  @@map("security_events")
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────────────────────
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     Json
+  group     String   @default("general") // "general", "payment", "email", "security"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
