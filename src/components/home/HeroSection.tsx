@@ -3,7 +3,7 @@
 // VORTEX GAMING — Premium Futuristic Hero Section
 // Cyberpunk glass aesthetic, interactive CTA, live platform indicators & spotlight banner
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Sparkles, Zap, ShieldCheck, ArrowRight, Flame, Trophy, ShoppingCart } from 'lucide-react';
 import { useCurrencyStore } from '@/lib/store/useCurrencyStore';
@@ -15,6 +15,11 @@ export function HeroSection() {
   const { format } = useCurrencyStore();
   const addItem = useCartStore((state) => state.addItem);
   const { t, isRTL } = useTranslation();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   // Spotlight top title
   const spotlightGame = GAMES_CATALOG[0]; // Cyberpunk 2077: Phantom Liberty
@@ -149,10 +154,14 @@ export function HeroSection() {
               <div className="flex items-center justify-between pt-2">
                 <div>
                   <div className="text-xs text-[#a0a0b8] line-through">
-                    {format(spotlightGame.originalPriceUSD, spotlightGame.originalPriceIQD)}
+                    {mounted
+                      ? format(spotlightGame.originalPriceUSD, spotlightGame.originalPriceIQD)
+                      : `$${(spotlightGame.originalPriceUSD / 100).toFixed(2)}`}
                   </div>
                   <div className="text-2xl font-black text-white font-mono">
-                    {format(spotlightGame.priceUSD, spotlightGame.priceIQD)}
+                    {mounted
+                      ? format(spotlightGame.priceUSD, spotlightGame.priceIQD)
+                      : `$${(spotlightGame.priceUSD / 100).toFixed(2)}`}
                   </div>
                 </div>
 

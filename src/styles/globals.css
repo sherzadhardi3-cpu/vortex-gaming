@@ -112,8 +112,12 @@
   background: var(--vortex-accent-blue);
 }
 
-/* Global styles */
+/* Global styles — Next.js router manages scroll restoration on html; use .smooth-scroll or window.scrollTo for animated scrolling */
 html {
+  background-color: var(--vortex-bg-primary);
+}
+
+.smooth-scroll {
   scroll-behavior: smooth;
 }
 

@@ -140,6 +140,14 @@ export function Header() {
 
   // Hydration & scroll listener
   useEffect(() => {
+    // Rehydrate currency store safely after initial render
+    const rehydrate = useCurrencyStore.persist.rehydrate();
+    if (rehydrate instanceof Promise) {
+      rehydrate.then(() => useCurrencyStore.getState().setHydrated(true));
+    } else {
+      useCurrencyStore.getState().setHydrated(true);
+    }
+
     // Check for OAuth client hydration cookie (e.g. from Discord callback)
     if (typeof document !== 'undefined') {
       const match = document.cookie.match(/(^|;)\s*vtx_client_auth=([^;]+)/);
