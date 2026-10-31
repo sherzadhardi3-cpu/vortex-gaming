@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:push": "prisma db push",
     "db:seed": "node scripts/seed-demo-data.mjs",
+    "discord:bot": "node scripts/discord-bot-worker.mjs",
     "lint": "eslint"
   },
   "engines": {

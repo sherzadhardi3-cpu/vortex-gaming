@@ -44,6 +44,12 @@ services:
         sync: false
       - key: DISCORD_CLIENT_SECRET
         sync: false
+      - key: DISCORD_GUILD_ID
+        sync: false
+      - key: DISCORD_SUPPORT_CHANNEL_ID
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
       - key: INITIAL_ADMIN_EMAIL
         sync: false
       - key: INITIAL_ADMIN_PASSWORD

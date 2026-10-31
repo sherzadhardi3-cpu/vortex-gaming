@@ -608,19 +608,21 @@ model Review {
 // ─── SUPPORT ─────────────────────────────────────────────────────────────────
 
 model SupportTicket {
-  id          String         @id @default(cuid())
-  ticketNumber String        @unique
-  userId      String
-  subject     String
-  status      TicketStatus   @default(OPEN)
-  priority    TicketPriority @default(MEDIUM)
-  category    String?        // "order", "payment", "activation", "refund", "account", "other"
-  orderId     String?        // Related order if applicable
-  assignedTo  String?        // Support agent user ID
-  resolvedAt  DateTime?
-  closedAt    DateTime?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id               String         @id @default(cuid())
+  ticketNumber     String         @unique
+  userId           String
+  subject          String
+  status           TicketStatus   @default(OPEN)
+  priority         TicketPriority @default(MEDIUM)
+  category         String?        // "order", "payment", "activation", "refund", "account", "other"
+  orderId          String?        // Related order if applicable
+  assignedTo       String?        // Support agent user ID
+  discordThreadId  String?        // Discord thread snowflake ID
+  discordChannelId String?        // Discord support parent channel ID
+  resolvedAt       DateTime?
+  closedAt         DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   user     User             @relation(fields: [userId], references: [id])
   messages TicketMessage[]
@@ -628,16 +630,19 @@ model SupportTicket {
   @@index([userId])
   @@index([status])
   @@index([ticketNumber])
+  @@index([discordThreadId])
   @@map("support_tickets")
 }
 
 model TicketMessage {
-  id        String   @id @default(cuid())
-  ticketId  String
-  userId    String
-  content   String
-  isStaff   Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id               String   @id @default(cuid())
+  ticketId         String
+  userId           String
+  content          String
+  isStaff          Boolean  @default(false)
+  senderName       String?  // Display name of customer or staff agent
+  discordMessageId String?  @unique // Discord message snowflake for deduplication
+  createdAt        DateTime @default(now())
 
   ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   user   User          @relation(fields: [userId], references: [id])

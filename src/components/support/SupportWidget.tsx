@@ -70,6 +70,29 @@ export function SupportWidget() {
     ? (user?.displayName || `${user?.firstName || ''} ${user?.lastName || ''}`).trim()
     : guestName || 'Gamer';
 
+  // Synthesize soft audio notification chime using Web Audio API
+  const playNotificationChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.12); // A5
+
+      gain.gain.setValueAtTime(0.06, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    } catch {}
+  };
+
   // Fetch tickets for current user
   const fetchTickets = async () => {
     if (!effectiveEmail && !user?.id) return;
@@ -78,6 +101,7 @@ export function SupportWidget() {
       if (user?.id) params.set('userId', user.id);
       if (effectiveEmail) params.set('email', effectiveEmail);
       if (user?.role) params.set('role', user.role);
+      if (activeTicket?.id) params.set('ticketId', activeTicket.id);
 
       const res = await fetch(`/api/support/messages?${params.toString()}`);
       const data = await res.json();
@@ -86,7 +110,15 @@ export function SupportWidget() {
 
         if (activeTicket) {
           const updated = data.tickets.find((t: SupportTicket) => t.id === activeTicket.id);
-          if (updated) setActiveTicket(updated);
+          if (updated) {
+            if (updated.messages.length > activeTicket.messages.length) {
+              const lastMsg = updated.messages[updated.messages.length - 1];
+              if (lastMsg.sender === 'SUPPORT_AGENT' && soundEnabled) {
+                playNotificationChime();
+              }
+            }
+            setActiveTicket(updated);
+          }
         } else if (data.tickets.length > 0 && currentView === 'tickets') {
           setActiveTicket(data.tickets[0]);
         }
@@ -143,10 +175,35 @@ export function SupportWidget() {
       if (isAuthenticated) {
         fetchCustomerOrders();
       }
-      const interval = setInterval(fetchTickets, 10000);
+      const interval = setInterval(fetchTickets, 4000);
       return () => clearInterval(interval);
     }
-  }, [isOpen, effectiveEmail, user?.id]);
+  }, [isOpen, effectiveEmail, user?.id, activeTicket?.id]);
+
+  const handleUpdateTicketStatus = async (status: 'CLOSED' | 'OPEN') => {
+    if (!activeTicket) return;
+    try {
+      const res = await fetch('/api/support/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_status',
+          ticketId: activeTicket.id,
+          status,
+          userId: user?.id,
+          userEmail: effectiveEmail,
+          role: user?.role,
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.ticket) {
+        setActiveTicket(data.ticket);
+        fetchTickets();
+      }
+    } catch (err) {
+      console.error('Failed to update ticket status:', err);
+    }
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -597,26 +654,70 @@ export function SupportWidget() {
               <div className="space-y-3">
                 {activeTicket ? (
                   <div className="space-y-3">
-                    <div className="p-3 rounded-xl bg-[#0a1128] border border-[#1b2a4a] text-xs">
-                      <div className="font-bold text-white">{activeTicket.subject}</div>
-                      <div className="text-[10px] text-[#8a99b5] flex items-center justify-between mt-1">
-                        <span>Ticket #{activeTicket.ticketNumber || activeTicket.id.slice(0, 8)}</span>
-                        <span className="px-2 py-0.5 rounded-full bg-[#0070f3]/20 text-[#00d4ff] font-bold">
+                    <div className="p-3 rounded-xl bg-[#0a1128] border border-[#1b2a4a] text-xs space-y-1.5">
+                      <div className="font-bold text-white flex items-center justify-between">
+                        <span className="truncate pr-2">{activeTicket.subject}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-[#0070f3]/20 text-[#00d4ff] font-bold text-[10px] shrink-0">
                           {activeTicket.status}
                         </span>
+                      </div>
+                      <div className="text-[10px] text-[#8a99b5] flex items-center justify-between">
+                        <span>Ticket #{activeTicket.ticketNumber || activeTicket.id.slice(0, 8)}</span>
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>Discord Live Bridge</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-[#1b2a4a]/60 text-[10px]">
+                        <span className="text-[#6b6b80]">Category: {activeTicket.category || 'General'}</span>
+                        {activeTicket.status !== 'CLOSED' ? (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateTicketStatus('CLOSED')}
+                            className="text-rose-400 hover:text-rose-300 font-semibold transition-colors"
+                          >
+                            Close Ticket
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateTicketStatus('OPEN')}
+                            className="text-[#00d4ff] hover:underline font-bold transition-colors"
+                          >
+                            Reopen Ticket
+                          </button>
+                        )}
                       </div>
                     </div>
 
                     <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
                       {activeTicket.messages.map((msg) => {
                         const isUser = msg.sender === 'CUSTOMER';
+                        const isSystem = msg.sender === 'SYSTEM';
+
+                        if (isSystem) {
+                          return (
+                            <div key={msg.id} className="text-center py-1">
+                              <span className="text-[10px] text-[#8a99b5] bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
+                                ℹ️ {msg.message}
+                              </span>
+                            </div>
+                          );
+                        }
+
                         return (
                           <div
                             key={msg.id}
                             className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1`}
                           >
-                            <div className="text-[10px] text-[#6b6b80] px-1">
-                              {msg.senderName} • {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <div className="text-[10px] text-[#6b6b80] px-1 flex items-center gap-1">
+                              <span>{msg.senderName}</span>
+                              {!isUser && (
+                                <span className="text-[9px] px-1 rounded bg-[#5865F2]/20 text-[#5865F2] font-mono font-bold">
+                                  Staff
+                                </span>
+                              )}
+                              <span>• {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                             </div>
                             <div
                               className={`max-w-[85%] p-3 rounded-2xl text-xs leading-relaxed ${
@@ -633,22 +734,35 @@ export function SupportWidget() {
                       <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Reply Input */}
-                    <form onSubmit={handleSendMessage} className="pt-2 flex gap-2">
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type reply to ticket..."
-                        className="flex-1 h-10 px-3 bg-[#0a1128] border border-[#1b2a4a] rounded-xl text-xs text-white outline-none focus:border-[#0070f3]"
-                      />
-                      <button
-                        type="submit"
-                        className="px-4 h-10 rounded-xl bg-[#0070f3] hover:bg-[#00d4ff] text-white text-xs font-bold transition-all"
-                      >
-                        <Send className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
+                    {/* Reply Input or Closed Notice */}
+                    {activeTicket.status === 'CLOSED' ? (
+                      <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-xs text-[#8a99b5] text-center space-y-1">
+                        <div>This ticket is marked resolved and closed.</div>
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateTicketStatus('OPEN')}
+                          className="text-[#00d4ff] hover:underline font-bold text-xs"
+                        >
+                          Reopen Ticket to Send Message
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handleSendMessage} className="pt-2 flex gap-2">
+                        <input
+                          type="text"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="Type reply to ticket..."
+                          className="flex-1 h-10 px-3 bg-[#0a1128] border border-[#1b2a4a] rounded-xl text-xs text-white outline-none focus:border-[#0070f3]"
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 h-10 rounded-xl bg-[#0070f3] hover:bg-[#00d4ff] text-white text-xs font-bold transition-all"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+                      </form>
+                    )}
                   </div>
                 ) : tickets.length > 0 ? (
                   <div className="space-y-2">

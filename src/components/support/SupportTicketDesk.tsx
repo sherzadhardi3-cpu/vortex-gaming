@@ -92,6 +92,7 @@ export function SupportTicketDesk({
       if (user?.id) params.set('userId', user.id);
       if (effectiveEmail) params.set('email', effectiveEmail);
       if (user?.role) params.set('role', user.role);
+      if (selectedTicket?.id) params.set('ticketId', selectedTicket.id);
 
       const res = await fetch(`/api/support/messages?${params.toString()}`);
       const data = await res.json();
@@ -126,8 +127,10 @@ export function SupportTicketDesk({
   useEffect(() => {
     if (effectiveEmail || user?.id) {
       fetchTickets();
+      const interval = setInterval(fetchTickets, 5000);
+      return () => clearInterval(interval);
     }
-  }, [effectiveEmail, user?.id]);
+  }, [effectiveEmail, user?.id, selectedTicket?.id]);
 
   useEffect(() => {
     if (selectedTicket && messagesEndRef.current) {
