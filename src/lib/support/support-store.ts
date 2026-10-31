@@ -70,14 +70,17 @@ function ensureInitialized(): Record<string, SupportTicket> {
     }
 
     if (fs.existsSync(DATA_FILE)) {
-      const content = fs.readFileSync(DATA_FILE, 'utf8');
-      ticketsCache = JSON.parse(content);
+      const content = fs.readFileSync(DATA_FILE, 'utf8').trim();
+      if (content) {
+        ticketsCache = JSON.parse(content);
+      } else {
+        ticketsCache = JSON.parse(JSON.stringify(DEFAULT_TICKETS));
+      }
     } else {
       ticketsCache = JSON.parse(JSON.stringify(DEFAULT_TICKETS));
-      fs.writeFileSync(DATA_FILE, JSON.stringify(ticketsCache, null, 2), 'utf8');
+      persistTickets();
     }
   } catch (err) {
-    console.warn('[SupportStore] Filesystem fallback to memory:', err);
     ticketsCache = JSON.parse(JSON.stringify(DEFAULT_TICKETS));
   }
 
@@ -90,7 +93,9 @@ function persistTickets() {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(ticketsCache, null, 2), 'utf8');
+    const tempFile = `${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(ticketsCache, null, 2), 'utf8');
+    fs.renameSync(tempFile, DATA_FILE);
   } catch (err) {
     // Disk persistence fallback
   }

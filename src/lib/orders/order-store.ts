@@ -107,14 +107,17 @@ function ensureInitialized(): OrdersDatabase {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
     if (fs.existsSync(ORDERS_FILE)) {
-      const raw = fs.readFileSync(ORDERS_FILE, 'utf8');
-      memoryStore = JSON.parse(raw);
+      const raw = fs.readFileSync(ORDERS_FILE, 'utf8').trim();
+      if (raw) {
+        memoryStore = JSON.parse(raw);
+      } else {
+        memoryStore = { orders: {}, inventory: {} };
+      }
     } else {
       memoryStore = { orders: {}, inventory: {} };
-      fs.writeFileSync(ORDERS_FILE, JSON.stringify(memoryStore, null, 2), 'utf8');
+      persistStore();
     }
   } catch (err) {
-    console.warn('[OrderStore] Local disk persistence fallback to memory:', err);
     memoryStore = { orders: {}, inventory: {} };
   }
 
@@ -130,7 +133,9 @@ function persistStore() {
   if (!memoryStore) return;
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify(memoryStore, null, 2), 'utf8');
+    const tempFile = `${ORDERS_FILE}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(memoryStore, null, 2), 'utf8');
+    fs.renameSync(tempFile, ORDERS_FILE);
   } catch (err) {
     // Disk persistence fallback
   }

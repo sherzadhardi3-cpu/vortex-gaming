@@ -17,6 +17,7 @@ export const PLATFORMS = [
 export {
   CURRENCIES,
   CURRENCY_CONFIGS,
+  getCurrencyConfig,
   type CurrencyCode,
   type CurrencyConfig,
 } from './constants/currencies.ts';

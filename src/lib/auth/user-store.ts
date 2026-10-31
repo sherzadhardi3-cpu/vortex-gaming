@@ -73,8 +73,12 @@ function ensureInitialized(): DatabasePayload {
     }
 
     if (fs.existsSync(DATA_FILE)) {
-      const content = fs.readFileSync(DATA_FILE, 'utf8');
-      memoryStore = JSON.parse(content);
+      const content = fs.readFileSync(DATA_FILE, 'utf8').trim();
+      if (content) {
+        memoryStore = JSON.parse(content);
+      } else {
+        memoryStore = { users: {}, accounts: {} };
+      }
       
       // Cleanse any legacy demo accounts from disk on initialization
       if (memoryStore?.users?.['admin_master_001']?.email === 'admin@vortexgaming.com') {
@@ -87,10 +91,9 @@ function ensureInitialized(): DatabasePayload {
       }
     } else {
       memoryStore = { users: {}, accounts: {} };
-      fs.writeFileSync(DATA_FILE, JSON.stringify(memoryStore, null, 2), 'utf8');
+      persistStore();
     }
   } catch (err) {
-    console.warn('[UserStore] Filesystem persistence fallback to memory:', err);
     memoryStore = { users: {}, accounts: {} };
   }
 
@@ -134,7 +137,9 @@ function persistStore() {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(memoryStore, null, 2), 'utf8');
+    const tempFile = `${DATA_FILE}.${process.pid}.${Date.now()}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(memoryStore, null, 2), 'utf8');
+    fs.renameSync(tempFile, DATA_FILE);
   } catch (err) {
     // Disk persistence error fallback
   }

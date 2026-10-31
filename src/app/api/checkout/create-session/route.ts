@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
                 name: item.title,
                 description: `Platform: ${item.platform} • Digital Key License`,
               },
-              unit_amount: Math.round(item.unitPriceUSD * 100 * (1 - discountPercent / 100)),
+              unit_amount: Math.round(item.unitPriceUSD * (1 - discountPercent / 100)),
             },
             quantity: item.quantity,
           }));
