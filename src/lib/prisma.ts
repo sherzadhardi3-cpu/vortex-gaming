@@ -25,6 +25,11 @@ export function getPrismaClient(): PrismaClient | null {
   }
 
   try {
+    const isSslRequired =
+      connectionString.includes('sslmode=require') ||
+      connectionString.includes('render.com') ||
+      connectionString.includes('ssl=true');
+
     const pool =
       globalForPrisma.pgPool ||
       new pg.Pool({
@@ -32,11 +37,14 @@ export function getPrismaClient(): PrismaClient | null {
         max: process.env.NODE_ENV === 'production' ? 10 : 5,
         idleTimeoutMillis: 30000,
         connectionTimeoutMillis: 5000,
+        ssl: isSslRequired ? { rejectUnauthorized: false } : undefined,
       });
 
-    if (process.env.NODE_ENV !== 'production') {
-      globalForPrisma.pgPool = pool;
-    }
+    pool.on('error', (err) => {
+      console.error('[Prisma/pgPool Error] Unexpected error on idle client:', err);
+    });
+
+    globalForPrisma.pgPool = pool;
 
     const adapter = new PrismaPg(pool);
     const client = new PrismaClient({
@@ -44,9 +52,7 @@ export function getPrismaClient(): PrismaClient | null {
       log: process.env.NODE_ENV === 'development' ? ['warn', 'error'] : process.env.NODE_ENV === 'test' ? [] : ['error'],
     });
 
-    if (process.env.NODE_ENV !== 'production') {
-      globalForPrisma.prismaInstance = client;
-    }
+    globalForPrisma.prismaInstance = client;
 
     return client;
   } catch (error) {
@@ -60,7 +66,6 @@ export const prisma = new Proxy({} as PrismaClient, {
     const client = getPrismaClient();
     if (!client) {
       if (
-        prop === '$queryRaw' ||
         prop === '$connect' ||
         prop === '$disconnect'
       ) {

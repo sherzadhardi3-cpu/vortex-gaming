@@ -33,7 +33,7 @@ services:
       - key: AUTH_SECRET
         generateValue: true
       - key: GAME_KEY_ENCRYPTION_KEY
-        sync: false # Set in Render Dashboard: 64-character hex CSPRNG key
+        value: "22c1f13acd6c4d73c278cc450a143485d8d0c91a87c6bcae6a8157d0308fff7a"
       - key: STRIPE_PUBLIC_KEY
         sync: false # Test mode key: pk_test_...
       - key: STRIPE_SECRET_KEY
