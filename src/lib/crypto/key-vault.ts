@@ -21,20 +21,16 @@ export function generateSecureEncryptionKey(): string {
  * Validates and retrieves the primary encryption key buffer from environment.
  */
 function getActiveEncryptionKey(): Buffer {
-  let keyHex = process.env.GAME_KEY_ENCRYPTION_KEY;
+  const keyHex = process.env.GAME_KEY_ENCRYPTION_KEY;
   if (!keyHex) {
-    if (process.env.APP_ENV === 'staging' || process.env.FORCE_SANDBOX === 'true') {
-      keyHex = '22c1f13acd6c4d73c278cc450a143485d8d0c91a87c6bcae6a8157d0308fff7a';
-    } else {
-      throw new Error(
-        'GAME_KEY_ENCRYPTION_KEY environment variable is not configured. ' +
-        'Generate one using generateSecureEncryptionKey() or crypto.randomBytes(32).'
-      );
-    }
+    throw new Error(
+      'GAME_KEY_ENCRYPTION_KEY environment variable is not configured. ' +
+      'Set a secure 64-character hex CSPRNG key in environment settings.'
+    );
   }
 
-  // Reject known predictable demonstration sequences
-  if (keyHex.startsWith('0123456789abcdef0123456789abcdef') && process.env.NODE_ENV === 'production' && process.env.APP_ENV !== 'staging') {
+  // Reject known predictable demonstration sequences in live production
+  if (keyHex.startsWith('0123456789abcdef0123456789abcdef') && process.env.NODE_ENV === 'production' && process.env.APP_ENV !== 'staging' && process.env.FORCE_SANDBOX !== 'true') {
     throw new Error('Insecure demonstration encryption key detected in production environment.');
   }
 

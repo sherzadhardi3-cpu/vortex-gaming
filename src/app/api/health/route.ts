@@ -17,6 +17,7 @@ export async function GET() {
     isCSPRNGCompliant: Boolean(currentKey && /^[0-9a-fA-F]{64}$/.test(currentKey)),
     hasFallbackKey: Boolean(previousKey),
     algorithm: 'AES-256-GCM',
+    keyOperationsPermitted: Boolean(currentKey && /^[0-9a-fA-F]{64}$/.test(currentKey)),
   };
 
   const stripeConfigured = Boolean(getStripeClient());
