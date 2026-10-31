@@ -172,7 +172,13 @@ export async function createDiscordSupportThread(ticket: {
   }
 
   // Unit test mock mode guard
-  if (config.botToken.endsWith('.test') || process.env.TEST_MOCK_DISCORD === 'true') {
+  const isTestRunner =
+    process.env.NODE_ENV === 'test' ||
+    process.env.npm_lifecycle_event === 'test' ||
+    Boolean(process.env.TEST_MOCK_DISCORD);
+  const allowLive = process.env.DISCORD_LIVE_DISPATCH === 'true';
+
+  if ((isTestRunner && !allowLive) || config.botToken.endsWith('.test')) {
     return {
       threadId: `th_mock_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       messageId: `msg_mock_${Date.now()}`,

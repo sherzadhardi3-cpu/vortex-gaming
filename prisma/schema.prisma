@@ -401,6 +401,10 @@ model Order {
   // Idempotency
   idempotencyKey  String?     @unique
 
+  // Discord Order Notification
+  discordMessageId String?     // Discord order notification message ID for in-place status edits
+  discordChannelId String?     // Discord orders channel ID
+
   paidAt          DateTime?
   fulfilledAt     DateTime?
   cancelledAt     DateTime?
@@ -420,6 +424,7 @@ model Order {
   @@index([orderNumber])
   @@index([status])
   @@index([createdAt])
+  @@index([discordMessageId])
   @@map("orders")
 }
 

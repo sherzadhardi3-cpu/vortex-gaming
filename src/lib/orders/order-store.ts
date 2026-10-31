@@ -15,6 +15,7 @@ import {
 import { encryptGameKey, decryptGameKey, hashGameKey } from '../crypto/key-vault.ts';
 import { getPrismaClient } from '../prisma.ts';
 import { GAMES_CATALOG } from '../data/games.ts';
+import { sendDiscordOrderNotification } from '../discord/discord-order-notifier.ts';
 
 export interface OrderItem {
   gameId: string;
@@ -92,6 +93,8 @@ export interface StoredOrder {
   isSandbox: boolean;
   paymentSessionId?: string;
   paymentIntentId?: string;
+  discordMessageId?: string;
+  discordChannelId?: string;
   allocatedKeys: AllocatedKeyRecord[];
   statusHistory: Array<{
     statusType: 'PAYMENT' | 'FULFILLMENT';
@@ -229,12 +232,16 @@ export async function syncOrderToPostgres(order: StoredOrder): Promise<void> {
         customerEmail,
         customerName: order.customerName || 'Customer',
         idempotencyKey: order.orderAccessToken,
+        discordMessageId: order.discordMessageId || null,
+        discordChannelId: order.discordChannelId || null,
         paidAt: order.paidAt ? new Date(order.paidAt) : null,
         fulfilledAt: order.fulfilledAt ? new Date(order.fulfilledAt) : null,
         refundedAt: order.refundReason ? new Date() : null,
       },
       update: {
         status: prismaStatus,
+        discordMessageId: order.discordMessageId || undefined,
+        discordChannelId: order.discordChannelId || undefined,
         paidAt: order.paidAt ? new Date(order.paidAt) : null,
         fulfilledAt: order.fulfilledAt ? new Date(order.fulfilledAt) : null,
         refundedAt: order.refundReason ? new Date() : null,
@@ -438,6 +445,18 @@ export function createAuthoritativeOrder(params: {
   store.orders[orderId] = newOrder;
   persistStore();
   syncOrderToPostgres(newOrder).catch(() => {});
+
+  // Asynchronously dispatch Discord order creation notification
+  sendDiscordOrderNotification(newOrder, 'CREATED')
+    .then((res) => {
+      if (res.messageId && !newOrder.discordMessageId) {
+        newOrder.discordMessageId = res.messageId;
+        persistStore();
+        syncOrderToPostgres(newOrder).catch(() => {});
+      }
+    })
+    .catch(() => {});
+
   return newOrder;
 }
 
@@ -585,6 +604,9 @@ export function markOrderAsPaid(
   persistStore();
   syncOrderToPostgres(order).catch(() => {});
 
+  // Update Discord order notification to VERIFIED PAID (Green)
+  sendDiscordOrderNotification(order, 'PAID').catch(() => {});
+
   return { success: true, order };
 }
 
@@ -621,6 +643,9 @@ export function markOrderAsProcessing(
   order.updatedAt = now;
   persistStore();
   syncOrderToPostgres(order).catch(() => {});
+
+  // Update Discord order notification to PROCESSING (Blue)
+  sendDiscordOrderNotification(order, 'PROCESSING').catch(() => {});
 
   return { success: true, order };
 }
@@ -671,6 +696,9 @@ export function markOrderAsFailed(
   order.updatedAt = now;
   persistStore();
   syncOrderToPostgres(order).catch(() => {});
+
+  // Update Discord order notification to FAILED (Red)
+  sendDiscordOrderNotification(order, 'FAILED').catch(() => {});
 
   return { success: true, order };
 }
@@ -931,7 +959,7 @@ export function revealOrderActivationKeys(
       });
     }
 
-    // If first time delivered/revealed, record timeline event
+    // If first time delivered/revealed, record timeline event and notify Discord
     const alreadyLoggedDelivery = order.statusHistory.some((h) => h.to === 'DELIVERED');
     if (!alreadyLoggedDelivery) {
       order.statusHistory.push({
@@ -941,6 +969,7 @@ export function revealOrderActivationKeys(
         timestamp: now,
         reason: 'Digital product delivered and revealed in customer vault',
       });
+      sendDiscordOrderNotification(order, 'DELIVERED').catch(() => {});
     }
 
     order.updatedAt = now;
@@ -1004,11 +1033,40 @@ export function reconcileOrderRefund(orderId: string, reason: string): boolean {
 
   persistStore();
   syncOrderToPostgres(order).catch(() => {});
+  sendDiscordOrderNotification(order, 'REFUNDED').catch(() => {});
   for (const record of order.allocatedKeys) {
     if (store.inventory[record.keyId]) {
       syncInventoryKeyToPostgres(store.inventory[record.keyId]).catch(() => {});
     }
   }
+  return true;
+}
+
+/**
+ * Cancels a pending order before payment is finalized and notifies Discord.
+ */
+export function cancelOrder(orderId: string, reason = 'Order canceled by customer or system'): boolean {
+  const store = ensureInitialized();
+  const order = store.orders[orderId];
+  if (!order) return false;
+  if (order.paymentStatus === 'PAID') return false; // Paid orders must be refunded, not simply canceled
+
+  const now = new Date().toISOString();
+  order.statusHistory.push({
+    statusType: 'PAYMENT',
+    from: order.paymentStatus,
+    to: 'CANCELLED',
+    timestamp: now,
+    reason,
+  });
+
+  order.paymentStatus = 'CANCELLED' as any;
+  order.fulfillmentStatus = 'FAILED';
+  order.updatedAt = now;
+
+  persistStore();
+  syncOrderToPostgres(order).catch(() => {});
+  sendDiscordOrderNotification(order, 'CANCELLED').catch(() => {});
   return true;
 }
 

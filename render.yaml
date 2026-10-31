@@ -48,6 +48,8 @@ services:
         sync: false
       - key: DISCORD_SUPPORT_CHANNEL_ID
         sync: false
+      - key: DISCORD_ORDERS_CHANNEL_ID
+        sync: false
       - key: DISCORD_BOT_TOKEN
         sync: false
       - key: INITIAL_ADMIN_EMAIL
