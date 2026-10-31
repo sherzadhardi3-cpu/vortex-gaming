@@ -1,9 +1,8 @@
 // VORTEX GAMING — Homepage Storefront
-// Composition of Hero, Platforms, Featured Titles, Trending Leaderboard, Flash Deals, Trust Pillars, and FAQ
+// Composition of Hero, Featured Categories, Featured Titles, Trending Leaderboard, Flash Deals, and FAQ
 
 import React from 'react';
 import { HeroSection } from '@/components/home/HeroSection';
-import { PlatformShowcase } from '@/components/home/PlatformShowcase';
 import { FeaturedCategories } from '@/components/home/FeaturedCategories';
 import { FeaturedGames } from '@/components/home/FeaturedGames';
 import { TrendingGames } from '@/components/home/TrendingGames';
@@ -13,11 +12,8 @@ import { FAQSection } from '@/components/home/FAQSection';
 export default function HomePage() {
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Hero Section & Benefits Bar */}
+      {/* Large Cinematic Hero Section & Benefits Bar */}
       <HeroSection />
-
-      {/* Platform & Shortcuts Showcase */}
-      <PlatformShowcase />
 
       {/* Featured Categories & Weekend Promotional Banners */}
       <FeaturedCategories />

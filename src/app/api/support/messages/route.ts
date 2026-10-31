@@ -6,6 +6,8 @@ import {
   getTicketsForUser,
   createTicket,
   addMessageToTicket,
+  updateTicketStatus,
+  type TicketStatusType,
 } from '@/lib/support/support-store';
 
 export async function GET(req: NextRequest) {
@@ -44,7 +46,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, ticketId, userId, userEmail, userName, subject, category, message, sender, role } = body;
+    const { action, ticketId, userId, userEmail, userName, subject, category, orderId, message, status, sender, role } = body;
 
     const isAdmin = role === 'ADMIN' || role === 'SUPER_ADMIN';
 
@@ -62,6 +64,7 @@ export async function POST(req: NextRequest) {
         userName: userName || userEmail.split('@')[0],
         subject,
         category: category || 'GENERAL',
+        orderId: orderId || undefined,
         initialMessage: message,
       });
 
@@ -69,6 +72,29 @@ export async function POST(req: NextRequest) {
         success: true,
         ticket,
         message: 'Support ticket created successfully.',
+      });
+    }
+
+    if (action === 'update_status') {
+      if (!ticketId || !status) {
+        return NextResponse.json(
+          { success: false, error: 'Ticket ID and status are required.' },
+          { status: 400 }
+        );
+      }
+
+      const updated = await updateTicketStatus({
+        ticketId,
+        status: status as TicketStatusType,
+        requestingUserId: userId || undefined,
+        requestingEmail: userEmail || undefined,
+        isAdmin,
+      });
+
+      return NextResponse.json({
+        success: true,
+        ticket: updated,
+        message: 'Ticket status updated successfully.',
       });
     }
 

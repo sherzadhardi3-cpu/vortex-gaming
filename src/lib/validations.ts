@@ -110,7 +110,15 @@ export const updateCartItemSchema = z.object({
 
 export const checkoutSchema = z.object({
   currency: z.enum(['USD', 'IQD']).default('USD'),
-  paymentProvider: z.enum(['stripe', 'fib', 'fastpay', 'qi_card']),
+  paymentProvider: z.enum([
+    'stripe',
+    'fib',
+    'fastpay',
+    'qi_card',
+    'vortex_wallet',
+    'iraqi_cards',
+    'international_cards',
+  ]),
   couponCode: z.string().max(50).optional(),
 });
 

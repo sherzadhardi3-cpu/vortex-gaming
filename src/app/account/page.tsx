@@ -33,7 +33,13 @@ import {
   ChevronRight,
   PlusCircle,
   AlertCircle,
+  MapPin,
+  Bell,
+  LayoutDashboard,
+  Mail,
+  RefreshCw,
 } from 'lucide-react';
+import { SupportTicketDesk } from '@/components/support/SupportTicketDesk';
 import { useAuthStore } from '@/lib/store/useAuthStore';
 import { useCurrencyStore } from '@/lib/store/useCurrencyStore';
 import { useWishlistStore } from '@/lib/store/useWishlistStore';
@@ -77,12 +83,16 @@ const SAMPLE_VAULT: VaultItem[] = [
 type DashboardTab =
   | 'overview'
   | 'orders'
-  | 'wishlist'
   | 'wallet'
+  | 'profile'
+  | 'addresses'
+  | 'wishlist'
+  | 'support'
+  | 'notifications'
+  | 'settings'
   | 'security'
   | 'pin'
-  | 'discord'
-  | 'support';
+  | 'discord';
 
 function AccountDashboardContent() {
   const router = useRouter();
@@ -263,16 +273,17 @@ function AccountDashboardContent() {
       ? userOrders.filter((o) => o.fulfillmentStatus === 'COMPLETED').length
       : SAMPLE_VAULT.length;
 
-  // Sidebar navigation options
+  // Sidebar navigation options (10 Core Items: 9 tabs + Logout action)
   const NAV_ITEMS = [
-    { id: 'overview', label: t('profilePage.overview'), icon: User },
+    { id: 'overview', label: t('profilePage.overview'), icon: LayoutDashboard },
     { id: 'orders', label: t('profilePage.orders'), icon: PackageCheck, count: totalOrdersCount },
-    { id: 'wishlist', label: t('profilePage.wishlist'), icon: Heart, count: wishlistItems.length },
     { id: 'wallet', label: t('profilePage.wallet'), icon: Wallet },
-    { id: 'security', label: t('profilePage.security'), icon: Lock },
-    { id: 'pin', label: t('profilePage.pin'), icon: Shield },
-    { id: 'discord', label: t('profilePage.discord'), icon: Gamepad2, isDiscord: true },
-    { id: 'support', label: t('profilePage.support'), icon: Headphones },
+    { id: 'profile', label: t('profilePage.profile'), icon: User },
+    { id: 'addresses', label: t('profilePage.addresses'), icon: MapPin },
+    { id: 'wishlist', label: t('profilePage.wishlist'), icon: Heart, count: wishlistItems.length },
+    { id: 'support', label: t('profilePage.tickets'), icon: Headphones },
+    { id: 'notifications', label: t('profilePage.notifications'), icon: Bell },
+    { id: 'settings', label: t('profilePage.settings'), icon: Settings },
   ];
 
   return (
@@ -379,7 +390,7 @@ function AccountDashboardContent() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-black' : item.isDiscord ? 'text-[#5865F2]' : 'text-[#00d4ff]'}`} />
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-black' : 'text-[#00d4ff]'}`} />
                     <span>{item.label}</span>
                   </div>
 
@@ -837,7 +848,7 @@ function AccountDashboardContent() {
               </div>
             )}
 
-            {/* 4. WALLET & TRANSACTIONS TAB */}
+                        {/* 3. WALLET & TRANSACTIONS TAB */}
             {activeTab === 'wallet' && (
               <div className="space-y-6">
                 <div>
@@ -859,18 +870,30 @@ function AccountDashboardContent() {
                     </div>
                     <div className="text-xs text-emerald-400 mt-1 font-semibold flex items-center gap-1">
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Protected Account Vault</span>
+                      <span>Direct Sandbox Checkout Active</span>
                     </div>
                   </div>
 
                   <div className="flex gap-3">
                     <button
-                      onClick={() => alert('VORTEX Sandbox: Wallet top-up is active in sandbox mode.')}
-                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-black font-extrabold text-xs uppercase shadow-md shadow-[#00d4ff]/20"
+                      disabled
+                      className="px-6 py-3 rounded-xl bg-white/5 text-[#8a99b5] font-bold text-xs uppercase border border-white/10 cursor-not-allowed"
                     >
-                      {t('profilePage.walletTopUp')}
+                      Top-Up (In Development)
                     </button>
                   </div>
+                </div>
+
+                {/* Status Notice */}
+                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 space-y-2">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400" />
+                    <span>Wallet & Checkout Status</span>
+                  </h3>
+                  <p className="text-xs text-[#a0a0b8] leading-relaxed">
+                    Digital purchases are completed via direct gateway checkout (Stripe, FIB, FastPay, Qi Card).
+                    Pre-funded stored balances are currently in sandbox staging. No fake balances or simulated wallet deductions are performed.
+                  </p>
                 </div>
 
                 {/* Transaction History */}
@@ -883,24 +906,263 @@ function AccountDashboardContent() {
               </div>
             )}
 
-            {/* 5. SECURITY & PASSWORDS TAB */}
-            {activeTab === 'security' && (
+            {/* 4. MY PROFILE TAB */}
+            {activeTab === 'profile' && (
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-black text-white flex items-center gap-2">
-                    <Lock className="w-5 h-5 text-indigo-400" />
-                    <span>{t('profilePage.security')}</span>
+                    <User className="w-5 h-5 text-[#00d4ff]" />
+                    <span>{t('profilePage.profile')}</span>
                   </h2>
                   <p className="text-xs text-[#a0a0b8] mt-0.5">
-                    Update your password and review active browser authentication sessions.
+                    Manage your public profile identity, name, and registered contact email.
+                  </p>
+                </div>
+
+                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 space-y-6">
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <div className="flex items-center gap-2.5">
+                      <User className="w-5 h-5 text-[#00d4ff]" />
+                      <h3 className="text-base font-bold text-white">{t('profilePage.personalInfo')}</h3>
+                    </div>
+
+                    {!isEditingProfile && (
+                      <button
+                        onClick={() => setIsEditingProfile(true)}
+                        className="px-3.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-white transition-colors"
+                      >
+                        {t('profilePage.editProfile')}
+                      </button>
+                    )}
+                  </div>
+
+                  {isEditingProfile ? (
+                    <form onSubmit={handleProfileSave} className="space-y-4">
+                      <div>
+                        <label className="text-xs text-[#a0a0b8] block mb-1">Display Name</label>
+                        <input
+                          type="text"
+                          value={displayName}
+                          onChange={(e) => setDisplayName(e.target.value)}
+                          className="w-full h-11 px-4 bg-[#0a0a0f] border border-white/15 rounded-xl text-sm text-white focus:border-[#00d4ff] outline-none"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="submit"
+                          className="px-5 py-2.5 rounded-xl bg-[#00d4ff] hover:bg-[#00d4ff]/90 text-black font-extrabold text-xs uppercase"
+                        >
+                          {t('profilePage.saveChanges')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingProfile(false)}
+                          className="px-4 py-2.5 rounded-xl bg-white/5 text-xs text-[#a0a0b8] hover:text-white"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                      {editSuccess && (
+                        <div className="text-xs text-emerald-400 font-semibold flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>Profile updated successfully!</span>
+                        </div>
+                      )}
+                    </form>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 space-y-1">
+                        <span className="text-[10px] font-bold text-[#8a99b5] uppercase">Display Name</span>
+                        <div className="text-sm font-bold text-white">{displayName || 'Not Set'}</div>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 space-y-1">
+                        <span className="text-[10px] font-bold text-[#8a99b5] uppercase">Registered Email</span>
+                        <div className="text-sm font-mono text-white">{user.email}</div>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 space-y-1">
+                        <span className="text-[10px] font-bold text-[#8a99b5] uppercase">Role Authorization</span>
+                        <div className="text-sm font-bold text-[#00d4ff] uppercase">{user.role || 'CUSTOMER'}</div>
+                      </div>
+                      <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 space-y-1">
+                        <span className="text-[10px] font-bold text-[#8a99b5] uppercase">Discord Status</span>
+                        <div className="text-sm font-bold text-[#5865F2]">
+                          {user.discordUsername ? `@${user.discordUsername}` : 'Unlinked'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 5. ADDRESSES TAB */}
+            {activeTab === 'addresses' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black text-white flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-[#00d4ff]" />
+                    <span>{t('profilePage.addresses')}</span>
+                  </h2>
+                  <p className="text-xs text-[#a0a0b8] mt-0.5">
+                    Electronic dispatch details for digital game keys, vouchers, and subscriptions.
+                  </p>
+                </div>
+
+                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 space-y-6">
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-[#00d4ff]" />
+                        <span>Primary Digital Delivery Destination</span>
+                      </h3>
+                      <p className="text-xs text-[#a0a0b8] mt-0.5">
+                        All purchased keys and access instructions are dispatched to this verified address.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider">
+                      Verified Digital Route
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 space-y-1">
+                      <span className="text-[10px] font-bold text-[#8a99b5] uppercase">Customer Email</span>
+                      <div className="text-sm font-mono font-bold text-white">{user.email}</div>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 space-y-1">
+                      <span className="text-[10px] font-bold text-[#8a99b5] uppercase">Account Holder</span>
+                      <div className="text-sm font-bold text-white">{displayName || user.firstName || 'Valued Gamer'}</div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0070f3]/10 border border-[#0070f3]/30 text-xs text-[#a0a0b8] leading-relaxed space-y-1">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-[#00d4ff]" />
+                      <span>Zero Physical Shipping Requirement</span>
+                    </div>
+                    <p>
+                      VORTEX GAMING is an exclusively digital marketplace. Physical parcel delivery addresses are neither collected nor required.
+                      All digital keys, redemption instructions, and credentials are protected by AES-256-GCM encryption and unlocked securely using your Security PIN.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 6. SUPPORT TICKETS TAB */}
+            {activeTab === 'support' && (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-black text-white flex items-center gap-2">
+                      <Headphones className="w-5 h-5 text-[#00d4ff]" />
+                      <span>{t('profilePage.tickets')}</span>
+                    </h2>
+                    <p className="text-xs text-[#a0a0b8] mt-0.5">
+                      Create inquiries, track ticket progress, and receive support from VORTEX specialists.
+                    </p>
+                  </div>
+                  <Link
+                    href="/support"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-semibold text-[#00d4ff] border border-white/10 transition-colors"
+                  >
+                    <span>Browse 35 Verified FAQs</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+
+                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10">
+                  <SupportTicketDesk />
+                </div>
+              </div>
+            )}
+
+            {/* 7. NOTIFICATIONS TAB */}
+            {activeTab === 'notifications' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-xl font-black text-white flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-[#00d4ff]" />
+                    <span>{t('profilePage.notifications')}</span>
+                  </h2>
+                  <p className="text-xs text-[#a0a0b8] mt-0.5">
+                    Transactional email delivery status and account activity notifications.
+                  </p>
+                </div>
+
+                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 space-y-6">
+                  <div className="flex items-center justify-between pb-4 border-b border-white/10">
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-[#00d4ff]" />
+                        <span>Transactional Email Dispatch</span>
+                      </h3>
+                      <p className="text-xs text-[#a0a0b8] mt-0.5">
+                        Purchase confirmations, payment receipts, and security PIN updates are sent to {user.email}.
+                      </p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold uppercase tracking-wider">
+                      Email Active
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 flex items-center justify-between gap-4 text-xs">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-[#0070f3]/20 text-[#00d4ff] flex items-center justify-center shrink-0">
+                          <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-white">Authenticated Session Established</div>
+                          <div className="text-[11px] text-[#8a99b5]">Account login verified from current browser session</div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-[#6b6b80]">Active</span>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 flex items-center justify-between gap-4 text-xs">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-white">Security PIN Vault Protection</div>
+                          <div className="text-[11px] text-[#8a99b5]">Protected delivery detail safeguards active</div>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-[#6b6b80]">Protected</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-xs text-[#a0a0b8] leading-relaxed">
+                    <div className="font-bold text-white mb-1">In-App Push Alerts Roadmap:</div>
+                    Browser push notifications and custom alert webhooks are in active development for future platform releases.
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 8. SETTINGS TAB (Combines Security, PIN, and Discord) */}
+            {(activeTab === 'settings' || activeTab === 'security' || activeTab === 'pin' || activeTab === 'discord') && (
+              <div className="space-y-8">
+                <div>
+                  <h2 className="text-xl font-black text-white flex items-center gap-2">
+                    <Settings className="w-5 h-5 text-[#00d4ff]" />
+                    <span>{t('profilePage.settings')}</span>
+                  </h2>
+                  <p className="text-xs text-[#a0a0b8] mt-0.5">
+                    Manage passwords, 4-digit Security PIN, two-factor authentication, and Discord linkage.
                   </p>
                 </div>
 
                 {/* Change Password Form */}
-                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 space-y-4">
-                  <h3 className="text-sm font-bold text-white">{t('profilePage.changePassword')}</h3>
-
-                  <form onSubmit={handlePasswordChange} className="space-y-4 max-w-md">
+                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 space-y-6">
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-indigo-400" />
+                    <span>{t('profilePage.changePassword')}</span>
+                  </h3>
+                  <form onSubmit={handlePasswordChange} className="space-y-4">
                     <div>
                       <label className="text-xs text-[#a0a0b8] block mb-1">{t('profilePage.currentPassword')}</label>
                       <input
@@ -908,135 +1170,97 @@ function AccountDashboardContent() {
                         required
                         value={currentPassword}
                         onChange={(e) => setCurrentPassword(e.target.value)}
-                        className="w-full h-10 px-3.5 bg-[#0a0a0f] border border-white/15 rounded-xl text-xs text-white outline-none focus:border-[#00d4ff]"
+                        className="w-full h-11 px-4 bg-[#0a0a0f] border border-white/15 rounded-xl text-sm text-white focus:border-[#00d4ff] outline-none"
                       />
                     </div>
-
-                    <div>
-                      <label className="text-xs text-[#a0a0b8] block mb-1">{t('profilePage.newPassword')}</label>
-                      <input
-                        type="password"
-                        required
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full h-10 px-3.5 bg-[#0a0a0f] border border-white/15 rounded-xl text-xs text-white outline-none focus:border-[#00d4ff]"
-                      />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs text-[#a0a0b8] block mb-1">{t('profilePage.newPassword')}</label>
+                        <input
+                          type="password"
+                          required
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className="w-full h-11 px-4 bg-[#0a0a0f] border border-white/15 rounded-xl text-sm text-white focus:border-[#00d4ff] outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-[#a0a0b8] block mb-1">{t('profilePage.confirmPassword')}</label>
+                        <input
+                          type="password"
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className="w-full h-11 px-4 bg-[#0a0a0f] border border-white/15 rounded-xl text-sm text-white focus:border-[#00d4ff] outline-none"
+                        />
+                      </div>
                     </div>
-
-                    <div>
-                      <label className="text-xs text-[#a0a0b8] block mb-1">{t('profilePage.confirmPassword')}</label>
-                      <input
-                        type="password"
-                        required
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full h-10 px-3.5 bg-[#0a0a0f] border border-white/15 rounded-xl text-xs text-white outline-none focus:border-[#00d4ff]"
-                      />
-                    </div>
-
                     {passwordStatus && (
-                      <div
-                        className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                          passwordStatus.success
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
-                        }`}
-                      >
-                        <AlertCircle className="w-4 h-4" />
+                      <div className={`text-xs font-semibold flex items-center gap-1.5 ${passwordStatus.success ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {passwordStatus.success ? <CheckCircle2 className="w-4 h-4" /> : <ShieldAlert className="w-4 h-4" />}
                         <span>{passwordStatus.message}</span>
                       </div>
                     )}
-
                     <button
                       type="submit"
-                      className="px-6 py-2.5 rounded-xl bg-[#00d4ff] text-black font-extrabold text-xs uppercase"
+                      className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white transition-colors"
                     >
                       Update Password
                     </button>
                   </form>
                 </div>
 
-                {/* Active Sessions */}
-                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 space-y-4">
-                  <h3 className="text-sm font-bold text-white">{t('profilePage.activeSessions')}</h3>
-                  <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-bold text-white">Current Web Browser Session</div>
-                      <div className="text-[#a0a0b8] text-[11px] mt-0.5">Windows • Chrome • Signed in now</div>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-xl bg-emerald-400/20 text-emerald-400 font-bold border border-emerald-400/30 text-[10px]">
-                      ACTIVE
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 6. PIN & 2FA TAB */}
-            {activeTab === 'pin' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-black text-white flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-emerald-400" />
-                    <span>PIN & Two-Factor Authentication</span>
-                  </h2>
-                  <p className="text-xs text-[#a0a0b8] mt-0.5">
-                    Extra layers of security to protect game key reveals and sensitive account actions.
-                  </p>
-                </div>
-
-                {/* 2FA Toggle */}
-                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 flex items-center justify-between">
-                  <div className="space-y-1">
-                    <div className="font-bold text-white text-sm">Two-Factor Authentication (TOTP)</div>
-                    <p className="text-xs text-[#a0a0b8]">
-                      Require a 6-digit code from your authenticator app (Google Authenticator, Authy) when signing in.
+                {/* 2FA Status */}
+                <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-bold text-white">{t('profilePage.mfa')}</h3>
+                    <p className="text-xs text-[#a0a0b8] mt-0.5">
+                      Add an extra layer of protection using authenticator app codes (TOTP).
                     </p>
                   </div>
+
                   <button
-                    onClick={() => {
-                      const next = !twoFactorEnabled;
-                      setTwoFactorEnabled(next);
-                      updateUser({ mfaEnabled: next });
-                    }}
+                    onClick={() => setTwoFactorEnabled(!twoFactorEnabled)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                       twoFactorEnabled
-                        ? 'bg-emerald-400 text-black'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                         : 'bg-white/5 text-[#a0a0b8] hover:text-white border border-white/10'
                     }`}
                   >
-                    {twoFactorEnabled ? 'Enabled ✓' : 'Enable 2FA'}
+                    {twoFactorEnabled ? 'Enabled' : 'Disabled'}
                   </button>
                 </div>
 
-                {/* Security PIN */}
+                {/* Security PIN Setup */}
                 <div className="p-6 rounded-3xl bg-[#12121a] border border-white/10 space-y-4">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-white text-sm">Digital Vault Security PIN</div>
-                      <p className="text-xs text-[#a0a0b8] mt-0.5">
-                        A 4-digit numeric code required before decrypting or exporting digital keys.
-                      </p>
+                      <div className="text-sm font-bold text-white flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-purple-400" />
+                        <span>Security PIN Protection</span>
+                      </div>
+                      <div className="text-xs text-[#a0a0b8] mt-0.5">
+                        A 4-digit PIN is required before AES-256 decryption on order delivery cards.
+                      </div>
                     </div>
-                    <span className="font-mono text-sm text-[#00d4ff] bg-[#0a0a0f] px-3 py-1.5 rounded-xl border border-white/10">
+                    <div className="font-mono text-xl tracking-widest text-[#00d4ff] bg-black/40 px-3 py-1 rounded-lg border border-white/10">
                       {securityPin}
-                    </span>
+                    </div>
                   </div>
 
                   {isSettingPin ? (
-                    <form onSubmit={handlePinSubmit} className="flex gap-2 max-w-xs">
+                    <form onSubmit={handlePinSubmit} className="flex items-center gap-3 pt-2">
                       <input
                         type="password"
                         maxLength={4}
-                        required
                         value={pinInput}
-                        onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
-                        placeholder="4 digits"
-                        className="flex-1 h-9 px-3 bg-[#0a0a0f] border border-white/15 rounded-xl text-xs text-white outline-none focus:border-[#00d4ff] text-center font-mono tracking-widest"
+                        onChange={(e) => setPinInput(e.target.value)}
+                        placeholder="••••"
+                        className="w-32 h-10 px-3 bg-[#0a0a0f] border border-white/15 rounded-xl text-center text-lg font-mono text-white focus:border-[#00d4ff] outline-none"
                       />
                       <button
                         type="submit"
-                        className="px-4 py-2 rounded-xl bg-[#00d4ff] text-black font-bold text-xs"
+                        className="px-4 py-2 rounded-xl bg-[#00d4ff] text-black font-extrabold text-xs"
                       >
                         Save PIN
                       </button>
@@ -1057,38 +1281,23 @@ function AccountDashboardContent() {
                     </button>
                   )}
                 </div>
-              </div>
-            )}
 
-            {/* 7. DISCORD LINK TAB */}
-            {activeTab === 'discord' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-xl font-black text-white flex items-center gap-2">
-                    <Gamepad2 className="w-5 h-5 text-[#5865F2]" />
-                    <span>Discord Account Integration</span>
-                  </h2>
-                  <p className="text-xs text-[#a0a0b8] mt-0.5">
-                    Connect your Discord profile for fast login, verified gamer status, and community perks.
-                  </p>
-                </div>
-
-                <div className="p-8 rounded-3xl bg-[#12121a] border border-[#5865F2]/30 shadow-2xl space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-2xl bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#5865F2] flex items-center justify-center font-bold">
-                        <Gamepad2 className="w-8 h-8" />
+                {/* Discord Linkage Card */}
+                <div className="p-6 rounded-3xl bg-[#12121a] border border-[#5865F2]/30 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#5865F2]/20 border border-[#5865F2]/40 text-[#5865F2] flex items-center justify-center font-bold">
+                        <Gamepad2 className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="text-lg font-black text-white">
+                        <div className="text-sm font-bold text-white">
                           {user.discordUsername ? `@${user.discordUsername}` : 'No Discord Account Linked'}
                         </div>
-                        <div className="text-xs text-[#a0a0b8] mt-0.5">
-                          {user.discordId ? `Discord ID: ${user.discordId}` : 'Link your account for seamless authentication'}
+                        <div className="text-xs text-[#a0a0b8]">
+                          {user.discordId ? `Discord ID: ${user.discordId}` : 'Link your account for seamless Discord authentication'}
                         </div>
                       </div>
                     </div>
-
                     <div>
                       {user.discordUsername ? (
                         <button
@@ -1104,72 +1313,13 @@ function AccountDashboardContent() {
                       ) : (
                         <Link
                           href="/api/auth/discord/login"
-                          className="px-6 py-3 rounded-xl bg-[#5865F2] hover:bg-[#5865F2]/90 text-white font-extrabold text-xs shadow-lg shadow-[#5865F2]/25 inline-flex items-center gap-2"
+                          className="px-4 py-2 rounded-xl bg-[#5865F2] hover:bg-[#5865F2]/90 text-white font-bold text-xs inline-flex items-center gap-2"
                         >
                           <span>{t('profilePage.discordConnectBtn')}</span>
                           <ExternalLink className="w-3.5 h-3.5" />
                         </Link>
                       )}
                     </div>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0a0a0f] border border-white/5 space-y-2 text-xs text-[#a0a0b8]">
-                    <div className="font-bold text-white flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                      <span>Security & Role Guarantee</span>
-                    </div>
-                    <p>
-                      OAuth permissions are strictly restricted to <code>identify</code> and <code>email</code>.
-                      Discord connections are given <code>CUSTOMER</code> permissions only and cannot grant administrative access.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* 8. SUPPORT TAB */}
-            {activeTab === 'support' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-black text-white flex items-center gap-2">
-                      <Headphones className="w-5 h-5 text-[#7c3aed]" />
-                      <span>{t('profilePage.support')}</span>
-                    </h2>
-                    <p className="text-xs text-[#a0a0b8] mt-0.5">
-                      Open support tickets, chat with agents, and track activation inquiries.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-8 rounded-3xl bg-[#12121a] border border-white/10 text-center space-y-4">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#00d4ff]/20 to-[#7c3aed]/20 border border-white/10 text-[#00d4ff] flex items-center justify-center mx-auto">
-                    <Headphones className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-lg font-bold text-white">VORTEX Customer Support Portal</h3>
-                  <p className="text-xs text-[#a0a0b8] max-w-md mx-auto leading-relaxed">
-                    Need instant help with an activation code, payment issue, or digital license?
-                    Our live support widget is active and ready to assist you.
-                  </p>
-                  <div className="pt-2 space-y-4">
-                    <p className="text-xs text-emerald-400 font-semibold">
-                      ● Support Agents Online • Average Response Time &lt; 5 mins
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (typeof window !== 'undefined') {
-                          window.dispatchEvent(new CustomEvent('vtx_open_support_widget'));
-                        }
-                      }}
-                      className="px-6 py-3 rounded-xl bg-gradient-to-r from-[#00d4ff] to-[#7c3aed] text-black font-extrabold text-xs uppercase tracking-wider shadow-lg shadow-[#00d4ff]/25 hover:opacity-95 transition-all inline-flex items-center gap-2 cursor-pointer"
-                    >
-                      <Headphones className="w-4 h-4" />
-                      <span>Open Live Support Chat</span>
-                    </button>
-                    <p className="text-[11px] text-[#6b6b80]">
-                      Click to launch the instant support assistant directly with your authenticated session.
-                    </p>
                   </div>
                 </div>
               </div>

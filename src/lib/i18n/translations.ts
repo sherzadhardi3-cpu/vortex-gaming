@@ -144,6 +144,11 @@ export interface TranslationDictionary {
   'profilePage.title': string;
   'profilePage.overview': string;
   'profilePage.orders': string;
+  'profilePage.profile': string;
+  'profilePage.addresses': string;
+  'profilePage.notifications': string;
+  'profilePage.settings': string;
+  'profilePage.tickets': string;
   'profilePage.vault': string;
   'profilePage.wishlist': string;
   'profilePage.wallet': string;
@@ -245,7 +250,7 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'nav.platforms': 'Platforms',
     'nav.support': 'Support',
     'nav.search': 'Search',
-    'nav.searchPlaceholder': 'Search games, activation keys, gift cards...',
+    'nav.searchPlaceholder': 'Search games, gift cards, subscriptions...',
     'nav.account': 'My Account',
     'nav.vault': 'Digital Key Vault',
     'nav.orders': 'My Orders',
@@ -320,13 +325,13 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'orderDetails.orderNotFoundDesc': 'We could not find this order or you do not have permission to view it.',
 
     'trust.instantDelivery': 'Instant Delivery',
-    'trust.instantDeliveryDesc': 'Automated key dispatch upon payment clearance.',
+    'trust.instantDeliveryDesc': 'Get your product right after payment.',
     'trust.genuineProducts': '100% Original',
-    'trust.genuineProductsDesc': 'Official and genuine authorized publisher keys.',
+    'trust.genuineProductsDesc': 'Official and genuine products.',
     'trust.securePayment': 'Secure Payment',
-    'trust.securePaymentDesc': 'Encrypted 256-bit checkout & sandbox tested.',
+    'trust.securePaymentDesc': 'Safe and trusted payment methods.',
     'trust.support': '24/7 Support',
-    'trust.supportDesc': 'Dedicated gamer assistance and ticket helpdesk.',
+    'trust.supportDesc': 'We are always here to help.',
 
     'hero.badge': 'OFFICIAL DIGITAL GAMING MARKETPLACE',
     'hero.title': 'AUTHENTIC KEYS. INSTANT VAULT.',
@@ -372,11 +377,16 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'store.noResultsDesc': 'Try selecting a different genre or clearing current filters.',
 
     'profilePage.title': 'Gamer Command Center',
-    'profilePage.overview': 'Overview',
-    'profilePage.orders': 'Orders & Vault',
+    'profilePage.overview': 'Dashboard',
+    'profilePage.orders': 'My Orders',
+    'profilePage.profile': 'My Profile',
+    'profilePage.addresses': 'Addresses',
+    'profilePage.notifications': 'Notifications',
+    'profilePage.settings': 'Settings',
+    'profilePage.tickets': 'Support Tickets',
     'profilePage.vault': 'Key Vault',
-    'profilePage.wishlist': 'My Wishlist',
-    'profilePage.wallet': 'Wallet & Balance',
+    'profilePage.wishlist': 'Wishlist',
+    'profilePage.wallet': 'My Wallet',
     'profilePage.security': 'Security & Login',
     'profilePage.pin': 'Security PIN',
     'profilePage.mfa': 'Two-Factor (2FA)',
@@ -599,11 +609,16 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'store.noResultsDesc': 'تکایە فلتەرەکان بگۆڕە یان سڕینەوە ئەنجام بدە.',
 
     'profilePage.title': 'ناوەندی کۆنتڕۆڵی یاریزان',
-    'profilePage.overview': 'پوختە',
-    'profilePage.orders': 'داواکاری و خەزێنە',
+    'profilePage.overview': 'داشبۆرد',
+    'profilePage.orders': 'داواکارییەکانی من',
+    'profilePage.profile': 'پڕۆفایلی من',
+    'profilePage.addresses': 'ناونیشانەکان',
+    'profilePage.notifications': 'ئاگادارییەکان',
+    'profilePage.settings': 'ڕێکخستنەکان',
+    'profilePage.tickets': 'تیکتەکانی پشتیوانی',
     'profilePage.vault': 'خەزێنەی کلیلەکان',
     'profilePage.wishlist': 'لیستی ئارەزووەکان',
-    'profilePage.wallet': 'جزدان و باڵانس',
+    'profilePage.wallet': 'جزدانی من',
     'profilePage.security': 'پاراستن و نهێنوشە',
     'profilePage.pin': 'پینی پاراستن',
     'profilePage.mfa': 'سەلماندنی دووانەیی (2FA)',
@@ -826,11 +841,16 @@ export const TRANSLATIONS: Record<'en' | 'ku' | 'ar', TranslationDictionary> = {
     'store.noResultsDesc': 'يرجى تجربة تصنيف آخر أو إعادة ضبط خيارات التصفية.',
 
     'profilePage.title': 'مركز قيادة الحساب',
-    'profilePage.overview': 'نظرة عامة',
-    'profilePage.orders': 'الطلبات والخزنة',
+    'profilePage.overview': 'لوحة التحكم',
+    'profilePage.orders': 'طلباتي',
+    'profilePage.profile': 'ملفي الشخصي',
+    'profilePage.addresses': 'العناوين',
+    'profilePage.notifications': 'الإشعارات',
+    'profilePage.settings': 'الإعدادات',
+    'profilePage.tickets': 'تذاكر الدعم',
     'profilePage.vault': 'خزنة المفاتيح',
     'profilePage.wishlist': 'قائمة المفضلة',
-    'profilePage.wallet': 'المحفظة والرصيد',
+    'profilePage.wallet': 'محفظتي',
     'profilePage.security': 'الأمان وكلمة المرور',
     'profilePage.pin': 'رمز PIN للأمان',
     'profilePage.mfa': 'التحقق الثنائي (2FA)',

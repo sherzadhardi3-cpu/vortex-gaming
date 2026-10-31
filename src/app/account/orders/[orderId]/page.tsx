@@ -1,8 +1,9 @@
 'use client';
 
-// VORTEX GAMING — Authoritative Order Details & Payment Lifecycle Page
-// Complete 4-stage stepper, real timestamped timeline, payment verification guard,
-// cryptographic key delivery, product metadata, and server-authoritative summary.
+// VORTEX GAMING — Authoritative Order Details & Secure PIN-Protected Digital Delivery System
+// Features: 4-stage stepper, timestamped event timeline, AES-256-GCM digital key vault,
+// Protected Content security card, customer PIN verification modal (setup/verify/reset),
+// unlocked delivery credentials for Game Accounts, Keys, Gift Cards, and Subscriptions.
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Link from 'next/link';
@@ -23,6 +24,7 @@ import {
   Sparkles,
   Gamepad2,
   Lock,
+  Unlock,
   ExternalLink,
   ChevronDown,
   ChevronUp,
@@ -31,8 +33,13 @@ import {
   FileText,
   AlertTriangle,
   Zap,
+  KeyRound,
+  X,
+  Mail,
+  UserCheck,
+  Globe,
 } from 'lucide-react';
-import { GAMES_CATALOG, type GameItem } from '@/lib/data/games';
+import { GAMES_CATALOG } from '@/lib/data/games';
 import { useAuthStore } from '@/lib/store/useAuthStore';
 import { useCurrencyStore } from '@/lib/store/useCurrencyStore';
 import { useTranslation } from '@/lib/i18n';
@@ -79,6 +86,30 @@ interface OrderData {
   notice?: string;
 }
 
+interface DeliveryItemDetail {
+  gameId: string;
+  title: string;
+  platform: string;
+  productType: 'GAME' | 'DLC' | 'GIFT_CARD' | 'SUBSCRIPTION' | 'GAME_ACCOUNT' | 'TOP_UP' | 'ITUNES';
+  plainTextKey?: string;
+  redemptionCode?: string;
+  activationGuide?: string;
+  accountUsername?: string;
+  accountPassword?: string;
+  accountEmail?: string;
+  emailPassword?: string;
+  platformWebsite?: string;
+  fulfillmentStatus?: string;
+  notes?: string;
+}
+
+interface PinStatus {
+  hasPin: boolean;
+  isLocked: boolean;
+  lockedUntil?: string | null;
+  remainingAttempts: number;
+}
+
 function OrderDetailsContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -89,24 +120,72 @@ function OrderDetailsContent() {
 
   const { user, isAuthenticated, token: authToken } = useAuthStore();
   const { t, isRTL } = useTranslation();
-  const { format, currency: activeCurrency } = useCurrencyStore();
+  const { format } = useCurrencyStore();
 
   const [order, setOrder] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Key reveal states
+  // Delivery & Key State
+  const [isPinVerified, setIsPinVerified] = useState(false);
+  const [pinAuthToken, setPinAuthToken] = useState<string | null>(null);
+  const [deliveryDetails, setDeliveryDetails] = useState<DeliveryItemDetail[]>([]);
   const [revealedKeys, setRevealedKeys] = useState<Record<string, string>>({});
   const [isRevealing, setIsRevealing] = useState(false);
   const [revealError, setRevealError] = useState<string | null>(null);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Field toggles & copy notifications
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({});
+  const [showEmailPasswordMap, setShowEmailPasswordMap] = useState<Record<string, boolean>>({});
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+
+  // PIN Modal & Authentication State
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pinModalMode, setPinModalMode] = useState<'verify' | 'setup' | 'reset'>('verify');
+  const [pinStatus, setPinStatus] = useState<PinStatus>({
+    hasPin: false,
+    isLocked: false,
+    remainingAttempts: 5,
+  });
+  const [pinInput, setPinInput] = useState('');
+  const [pinConfirmInput, setPinConfirmInput] = useState('');
+  const [accountPasswordInput, setAccountPasswordInput] = useState('');
+  const [pinError, setPinError] = useState<string | null>(null);
+  const [pinSubmitting, setPinSubmitting] = useState(false);
+  const [unlockedExpiry, setUnlockedExpiry] = useState<number | null>(null);
 
   // Sandbox simulation state
   const [isSimulating, setIsSimulating] = useState(false);
   const [simMessage, setSimMessage] = useState<string | null>(null);
 
-  // Fetch order data from authoritative API
+  // Fetch PIN Configuration Status from API
+  const fetchPinStatus = async () => {
+    if (!user?.id && !user?.email) return;
+    try {
+      const headers: Record<string, string> = {};
+      if (user?.id) headers['x-user-id'] = user.id;
+      if (user?.email) headers['x-user-email'] = user.email;
+
+      const res = await fetch(`/api/account/pin/status?userId=${encodeURIComponent(user?.id || '')}`, {
+        headers,
+        cache: 'no-store',
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPinStatus({
+          hasPin: Boolean(data.hasPin),
+          isLocked: Boolean(data.isLocked),
+          lockedUntil: data.lockedUntil,
+          remainingAttempts: data.remainingAttempts ?? 5,
+        });
+      }
+    } catch {
+      // Background check failure graceful fallback
+    }
+  };
+
+  // Fetch Order Data from Authoritative API
   const fetchOrder = async (isInitial = false) => {
     if (!rawOrderId) {
       setError('Order ID missing from URL');
@@ -130,7 +209,6 @@ function OrderDetailsContent() {
       } else {
         setOrder(data.order);
         setError(null);
-        // Expand first item by default
         if (isInitial && data.order?.items?.[0]) {
           setExpandedItems({ [data.order.items[0].gameId]: true });
         }
@@ -144,6 +222,8 @@ function OrderDetailsContent() {
 
   useEffect(() => {
     fetchOrder(true);
+    fetchPinStatus();
+
     // Poll every 8s if pending payment to detect webhook completion
     const interval = setInterval(() => {
       if (order && (order.paymentStatus === 'PENDING' || order.paymentStatus === 'PROCESSING')) {
@@ -153,15 +233,54 @@ function OrderDetailsContent() {
     return () => clearInterval(interval);
   }, [rawOrderId, token, user?.id, user?.email]);
 
-  // Handle Reveal Key
-  const handleRevealKeys = async () => {
-    if (!order || !order.canReveal) return;
+  // Session timer: automatically re-lock when short-lived PIN authorization expires
+  useEffect(() => {
+    if (!unlockedExpiry) return;
+    const checkTimer = setInterval(() => {
+      if (Date.now() >= unlockedExpiry) {
+        handleLockContent();
+      }
+    }, 2000);
+    return () => clearInterval(checkTimer);
+  }, [unlockedExpiry]);
+
+  // Open PIN Modal
+  const handleOpenPinModal = () => {
+    setPinError(null);
+    setPinInput('');
+    setPinConfirmInput('');
+    setAccountPasswordInput('');
+
+    if (!pinStatus.hasPin) {
+      setPinModalMode('setup');
+    } else {
+      setPinModalMode('verify');
+    }
+    setIsPinModalOpen(true);
+  };
+
+  // Lock Content: Wipes sensitive credentials from memory
+  const handleLockContent = () => {
+    setIsPinVerified(false);
+    setPinAuthToken(null);
+    setDeliveryDetails([]);
+    setRevealedKeys({});
+    setUnlockedExpiry(null);
+    setRevealError(null);
+  };
+
+  // Execute Decryption & Reveal with verified PIN Auth Token
+  const executeRevealWithToken = async (activePinToken: string) => {
+    if (!order) return;
     setIsRevealing(true);
     setRevealError(null);
 
     try {
-      const url = `/api/orders/${encodeURIComponent(order.id)}/reveal-key`;
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const url = `/api/orders/${encodeURIComponent(order.id)}/reveal-delivery`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-pin-auth-token': activePinToken,
+      };
       if (token) headers['x-order-token'] = token;
       if (user?.id) headers['x-user-id'] = user.id;
       if (user?.email) headers['x-user-email'] = user.email;
@@ -174,33 +293,173 @@ function OrderDetailsContent() {
           token,
           userId: user?.id,
           email: user?.email,
+          pinAuthToken: activePinToken,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        setRevealError(data.error || 'Failed to decrypt keys.');
+        setRevealError(data.error || 'Failed to decrypt delivery details.');
       } else {
-        const keyMap: Record<string, string> = {};
-        data.keys?.forEach((k: { gameId: string; plainTextKey: string }) => {
-          keyMap[k.gameId] = k.plainTextKey;
-        });
-        setRevealedKeys(keyMap);
-        // Re-fetch to get updated timeline entry
+        setIsPinVerified(true);
+        if (data.deliveryDetails) {
+          setDeliveryDetails(data.deliveryDetails);
+        }
+        if (data.keys) {
+          const keyMap: Record<string, string> = {};
+          data.keys.forEach((k: { gameId: string; plainTextKey: string }) => {
+            keyMap[k.gameId] = k.plainTextKey;
+          });
+          setRevealedKeys(keyMap);
+        }
         fetchOrder(false);
       }
     } catch (err: any) {
-      setRevealError(err.message || 'Network error decrypting activation keys.');
+      setRevealError(err.message || 'Network error decrypting delivery credentials.');
     } finally {
       setIsRevealing(false);
     }
   };
 
-  // Copy Key to Clipboard
-  const handleCopyKey = (keyText: string) => {
-    navigator.clipboard.writeText(keyText);
-    setCopiedKey(keyText);
-    setTimeout(() => setCopiedKey(null), 2500);
+  // Submit PIN Form in Modal
+  const handlePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPinError(null);
+    setPinSubmitting(true);
+
+    try {
+      if (pinModalMode === 'verify') {
+        // Mode 1: Verify PIN
+        if (!pinInput.trim()) {
+          setPinError('Please enter your 4-6 digit security PIN.');
+          setPinSubmitting(false);
+          return;
+        }
+
+        const res = await fetch('/api/account/pin/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(user?.id ? { 'x-user-id': user.id } : {}),
+            ...(user?.email ? { 'x-user-email': user.email } : {}),
+          },
+          body: JSON.stringify({
+            userId: user?.id,
+            userEmail: user?.email,
+            orderId: order?.id,
+            pin: pinInput.trim(),
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          if (data.locked) {
+            setPinError('Too many failed attempts. PIN verification is locked for 15 minutes.');
+            setPinStatus((prev) => ({ ...prev, isLocked: true, remainingAttempts: 0 }));
+          } else {
+            const remaining = data.remainingAttempts ?? 0;
+            setPinError(data.error || `Incorrect PIN. ${remaining} attempts remaining.`);
+            setPinStatus((prev) => ({ ...prev, remainingAttempts: remaining }));
+          }
+          setPinSubmitting(false);
+          return;
+        }
+
+        // Verification Succeeded!
+        setPinAuthToken(data.pinAuthToken);
+        setUnlockedExpiry(Date.now() + 10 * 60 * 1000);
+        setIsPinModalOpen(false);
+        setPinInput('');
+
+        // Decrypt protected inventory on-demand
+        await executeRevealWithToken(data.pinAuthToken);
+      } else if (pinModalMode === 'setup' || pinModalMode === 'reset') {
+        // Mode 2 & 3: Set Up or Reset PIN
+        if (!/^\d{4,6}$/.test(pinInput.trim())) {
+          setPinError('PIN must be 4 to 6 numeric digits.');
+          setPinSubmitting(false);
+          return;
+        }
+        if (pinInput.trim() !== pinConfirmInput.trim()) {
+          setPinError('PINs do not match. Please re-enter.');
+          setPinSubmitting(false);
+          return;
+        }
+        if (pinModalMode === 'reset' && !accountPasswordInput.trim()) {
+          setPinError('Your account password is required to verify identity.');
+          setPinSubmitting(false);
+          return;
+        }
+
+        const res = await fetch('/api/account/pin/setup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(user?.id ? { 'x-user-id': user.id } : {}),
+            ...(user?.email ? { 'x-user-email': user.email } : {}),
+          },
+          body: JSON.stringify({
+            userId: user?.id,
+            userEmail: user?.email,
+            pin: pinInput.trim(),
+            accountPassword: accountPasswordInput.trim() || undefined,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          setPinError(data.error || 'Failed to configure security PIN.');
+          setPinSubmitting(false);
+          return;
+        }
+
+        // Successfully created/updated PIN!
+        setPinStatus({
+          hasPin: true,
+          isLocked: false,
+          remainingAttempts: 5,
+        });
+
+        // Switch immediately to verify or auto-unlock
+        setPinModalMode('verify');
+        setPinError(null);
+        setPinConfirmInput('');
+        setAccountPasswordInput('');
+
+        // Auto-verify the newly created PIN
+        const verifyRes = await fetch('/api/account/pin/verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(user?.id ? { 'x-user-id': user.id } : {}),
+          },
+          body: JSON.stringify({
+            userId: user?.id,
+            orderId: order?.id,
+            pin: pinInput.trim(),
+          }),
+        });
+        const verifyData = await verifyRes.json();
+        if (verifyData.success) {
+          setPinAuthToken(verifyData.pinAuthToken);
+          setUnlockedExpiry(Date.now() + 10 * 60 * 1000);
+          setIsPinModalOpen(false);
+          setPinInput('');
+          await executeRevealWithToken(verifyData.pinAuthToken);
+        }
+      }
+    } catch (err: any) {
+      setPinError(err.message || 'Failed to complete PIN verification.');
+    } finally {
+      setPinSubmitting(false);
+    }
+  };
+
+  // Copy to Clipboard with field key indicator
+  const handleCopy = (textToCopy: string, fieldId: string) => {
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedField(fieldId);
+    setTimeout(() => setCopiedField(null), 2500);
   };
 
   // Open Support Widget with Order Association
@@ -218,7 +477,7 @@ function OrderDetailsContent() {
     }
   };
 
-  // Sandbox simulation payment (only available when isSandbox is true)
+  // Sandbox simulation payment (only available in sandbox/staging mode)
   const handleSimulatePayment = async () => {
     if (!order || !order.isSandbox) return;
     setIsSimulating(true);
@@ -244,40 +503,26 @@ function OrderDetailsContent() {
     }
   };
 
-  // Toggle item details
-  const toggleItemExpanded = (gameId: string) => {
-    setExpandedItems((prev) => ({ ...prev, [gameId]: !prev[gameId] }));
-  };
-
   // Stepper Stage Status Calculations
   const stepper = useMemo(() => {
     if (!order) {
-      return {
-        stage1: 'PENDING',
-        stage2: 'PENDING',
-        stage3: 'PENDING',
-        stage4: 'PENDING',
-      };
+      return { stage1: 'PENDING', stage2: 'PENDING', stage3: 'PENDING', stage4: 'PENDING' };
     }
 
-    // Stage 1: Order Placed
     const stage1 = 'COMPLETED';
 
-    // Stage 2: Payment Confirmed
     let stage2 = 'PENDING';
     if (order.paymentStatus === 'PAID') stage2 = 'COMPLETED';
     else if (order.paymentStatus === 'PROCESSING') stage2 = 'PROCESSING';
     else if (order.paymentStatus === 'FAILED') stage2 = 'FAILED';
     else if (order.paymentStatus === 'REFUNDED') stage2 = 'REFUNDED';
 
-    // Stage 3: Fulfillment Completed (Rule: only completed after actual allocation)
     let stage3 = 'PENDING';
     if (order.fulfillmentStatus === 'COMPLETED') stage3 = 'COMPLETED';
     else if (order.fulfillmentStatus === 'RESERVED') stage3 = 'PROCESSING';
     else if (order.fulfillmentStatus === 'FAILED') stage3 = 'FAILED';
     else if (order.fulfillmentStatus === 'REVOKED') stage3 = 'REVOKED';
 
-    // Stage 4: Digital Product Delivered
     let stage4 = 'PENDING';
     if (order.fulfillmentStatus === 'COMPLETED' && order.hasKeysAllocated) {
       stage4 = 'COMPLETED';
@@ -328,11 +573,9 @@ function OrderDetailsContent() {
     );
   }
 
-  // Total quantity calculation
   const totalItemCount = order.items.reduce((acc, i) => acc + (i.quantity || 1), 0);
   const deliveredCount = order.canReveal ? totalItemCount : 0;
 
-  // Format creation date
   const createdDateFormatted = new Date(order.createdAt).toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
@@ -355,7 +598,6 @@ function OrderDetailsContent() {
             <span>{t('orderDetails.backToOrders')}</span>
           </Link>
 
-          {/* Sandbox Mode Badge */}
           {order.isSandbox && (
             <span className="px-3 py-1 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-mono text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
               <AlertTriangle className="w-3.5 h-3.5" />
@@ -380,7 +622,6 @@ function OrderDetailsContent() {
 
           {/* Status Badges */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Payment Badge */}
             <span
               className={`px-3 py-1 rounded-xl text-xs font-bold capitalize border shadow-sm ${
                 order.paymentStatus === 'PAID'
@@ -401,7 +642,6 @@ function OrderDetailsContent() {
                 : t('orderDetails.statusPending')}
             </span>
 
-            {/* Fulfillment Badge */}
             <span
               className={`px-3 py-1 rounded-xl text-xs font-bold capitalize border shadow-sm ${
                 order.fulfillmentStatus === 'COMPLETED'
@@ -422,14 +662,12 @@ function OrderDetailsContent() {
           </div>
         </div>
 
-        {/* ── SANDBOX TESTING CONTROLS (Only visible in sandbox/staging mode) ── */}
+        {/* ── SANDBOX SIMULATION TESTING BAR ── */}
         {order.isSandbox && order.paymentStatus !== 'PAID' && (
           <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2 text-amber-300">
               <Zap className="w-4 h-4 shrink-0 text-amber-400" />
-              <span>
-                Sandbox order in test environment. You can simulate instant payment verification.
-              </span>
+              <span>Sandbox test order. You can simulate instant payment settlement.</span>
             </div>
             <button
               onClick={handleSimulatePayment}
@@ -446,13 +684,10 @@ function OrderDetailsContent() {
           </div>
         )}
 
-        {/* ── 1. ORDER STATUS TIMELINE (4 Horizontal Stages matching Image 1) ── */}
+        {/* ── 1. ORDER STATUS PROGRESS TIMELINE ── */}
         <div className="p-6 sm:p-8 rounded-2xl bg-[#101018] border border-white/10 shadow-xl space-y-6">
           <div className="relative">
-            {/* Horizontal Line Container */}
             <div className="absolute top-5 left-8 right-8 h-0.5 bg-white/10 -z-0" />
-            
-            {/* Active Highlight Line */}
             <div
               className={`absolute top-5 left-8 h-0.5 transition-all duration-500 -z-0 ${
                 stepper.stage4 === 'COMPLETED'
@@ -465,7 +700,6 @@ function OrderDetailsContent() {
               }`}
             />
 
-            {/* Stepper Steps Grid */}
             <div className="grid grid-cols-4 relative z-10 text-center">
               {/* Stage 1: Order Placed */}
               <div className="flex flex-col items-center space-y-2">
@@ -570,7 +804,7 @@ function OrderDetailsContent() {
           </div>
         </div>
 
-        {/* ── 2. TOTAL DELIVERED COUNTER STRIP (Matching Image 1) ── */}
+        {/* ── 2. TOTAL DELIVERED COUNTER STRIP ── */}
         <div className="p-4 rounded-2xl bg-[#101018] border border-white/10 flex items-center justify-between text-xs font-bold">
           <div className="flex items-center gap-2">
             <Package className="w-4 h-4 text-[#00d4ff]" />
@@ -599,7 +833,7 @@ function OrderDetailsContent() {
           </div>
         </div>
 
-        {/* ── 3. REAL TIMESTAMPED EVENT TIMELINE (Matching Image 1) ── */}
+        {/* ── 3. REAL TIMESTAMPED EVENT TIMELINE ── */}
         <div className="p-5 rounded-2xl bg-[#101018] border border-white/10 shadow-xl space-y-3">
           <div className="text-xs font-black uppercase text-[#a0a0b8] tracking-wider border-b border-white/5 pb-2">
             {t('orderDetails.timelineHistory')}
@@ -616,7 +850,6 @@ function OrderDetailsContent() {
                   minute: '2-digit',
                 });
 
-                // Format label & color
                 let label = event.reason || event.to;
                 let colorClass = 'text-[#a0a0b8]';
 
@@ -661,7 +894,7 @@ function OrderDetailsContent() {
           </div>
         </div>
 
-        {/* ── 4. PURCHASED PRODUCT ITEM CARDS (Matching Image 1 & 2) ── */}
+        {/* ── 4. PURCHASED PRODUCTS & DIGITAL DELIVERY CARDS ── */}
         <div className="space-y-4">
           {order.items.map((item, idx) => {
             const gameCatalogItem = GAMES_CATALOG.find(
@@ -669,8 +902,10 @@ function OrderDetailsContent() {
             );
 
             const isExpanded = !!expandedItems[item.gameId];
-            const revealedKeyText = revealedKeys[item.gameId];
             const isDelivered = order.canReveal;
+            const itemDelivery = deliveryDetails.find((d) => d.gameId === item.gameId);
+            const rawKeyText = revealedKeys[item.gameId] || itemDelivery?.plainTextKey;
+            const productType = itemDelivery?.productType || gameCatalogItem?.productType || 'GAME';
 
             return (
               <div
@@ -680,7 +915,6 @@ function OrderDetailsContent() {
                 {/* Main Product Info Row */}
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4 flex-1 min-w-0">
-                    {/* Artwork / Banner Box */}
                     <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden relative shrink-0 bg-gradient-to-tr from-slate-900 to-black border border-white/10">
                       <div
                         className={`absolute inset-0 bg-gradient-to-tr ${
@@ -692,16 +926,14 @@ function OrderDetailsContent() {
                       </div>
                     </div>
 
-                    {/* Title & Metadata */}
                     <div className="space-y-1.5 min-w-0 flex-1">
                       <h3 className="text-base font-bold text-white truncate">{item.title}</h3>
-
                       <div className="flex flex-wrap items-center gap-2 text-[10px] font-mono">
                         <span className="text-[#6b6b80]">
                           #{order.orderNumber} ×{item.quantity || 1}
                         </span>
                         <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-[#00d4ff] uppercase">
-                          {gameCatalogItem?.productType || 'DIGITAL'}
+                          {productType}
                         </span>
                         <span className="px-2 py-0.5 rounded bg-white/5 border border-white/10 text-white font-bold">
                           {gameCatalogItem?.activationRegion || 'GLOBAL'}
@@ -713,7 +945,6 @@ function OrderDetailsContent() {
                     </div>
                   </div>
 
-                  {/* Price & Action Buttons (Matching Image 1) */}
                   <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-white/5">
                     <div className="text-base font-black text-white font-mono">
                       {format(
@@ -723,7 +954,6 @@ function OrderDetailsContent() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* Rate / Review Guide Button */}
                       <Link
                         href={`/game/${gameCatalogItem?.slug || item.gameId}`}
                         className="px-3 py-1.5 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs flex items-center gap-1 shadow-md transition-all active:scale-95"
@@ -732,7 +962,6 @@ function OrderDetailsContent() {
                         <span>{t('orderDetails.rateNow')}</span>
                       </Link>
 
-                      {/* Customer Support Button (Opens VORTEX support widget) */}
                       <button
                         onClick={() => handleOpenSupport(item.title)}
                         className="px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all active:scale-95"
@@ -747,19 +976,13 @@ function OrderDetailsContent() {
                 {/* View Details Toggle */}
                 <div className="pt-2 border-t border-white/5 flex items-center justify-between">
                   <button
-                    onClick={() => toggleItemExpanded(item.gameId)}
+                    onClick={() => setExpandedItems((prev) => ({ ...prev, [item.gameId]: !prev[item.gameId] }))}
                     className="text-xs text-[#00d4ff] hover:underline flex items-center gap-1 font-semibold"
                   >
                     <span>
-                      {isExpanded
-                        ? t('orderDetails.hideDetails')
-                        : t('orderDetails.viewDetails')}
+                      {isExpanded ? t('orderDetails.hideDetails') : t('orderDetails.viewDetails')}
                     </span>
-                    {isExpanded ? (
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    ) : (
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    )}
+                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                   </button>
 
                   <div className="text-[11px] text-[#6b6b80]">
@@ -770,104 +993,299 @@ function OrderDetailsContent() {
                   </div>
                 </div>
 
-                {/* ── EXPANDABLE PRODUCT DETAILS & DIGITAL DELIVERY AREA ── */}
+                {/* ── EXPANDABLE PRODUCT DETAILS & PIN-PROTECTED DIGITAL DELIVERY ── */}
                 {isExpanded && (
-                  <div className="p-4 rounded-xl bg-[#0a0a0f] border border-white/10 space-y-4 text-xs">
-                    {/* Delivery Status and Key Box */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-[#a0a0b8] uppercase tracking-wider text-[11px]">
-                          Digital Product License & Credentials
+                  <div className="p-4 sm:p-5 rounded-2xl bg-[#0a0a0f] border border-white/10 space-y-4 text-xs">
+                    
+                    {/* CASE 1: UNPAID OR PENDING ORDER */}
+                    {!isDelivered ? (
+                      <div className="p-4 rounded-xl bg-[#12121a] border border-amber-500/20 flex items-center justify-between gap-3 text-xs">
+                        <div className="flex items-center gap-2.5 text-amber-300">
+                          <Lock className="w-4 h-4 text-amber-400 shrink-0" />
+                          <span>Locked • Delivery credentials will unlock automatically once payment is verified.</span>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 font-mono text-[11px] font-bold shrink-0">
+                          Awaiting Payment
                         </span>
+                      </div>
+                    ) : !isPinVerified ? (
+                      /* CASE 2: PAID ORDER BUT PIN NOT VERIFIED (PROTECTED CONTENT CARD) */
+                      <div className="rounded-2xl bg-gradient-to-r from-[#0c1630] via-[#0b1633] to-[#070b18] border border-[#0070f3]/40 p-5 sm:p-6 shadow-2xl relative overflow-hidden space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3.5">
+                            <div className="w-12 h-12 rounded-2xl bg-[#0070f3]/15 border border-[#0070f3]/40 flex items-center justify-center text-[#00d4ff] shadow-inner shadow-[#0070f3]/30 shrink-0">
+                              <ShieldCheck className="w-6 h-6 text-[#00d4ff]" />
+                            </div>
+                            <div>
+                              <h4 className="text-base font-black text-white uppercase tracking-wide flex items-center gap-2">
+                                <span>Protected Content</span>
+                                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#0070f3]/20 text-[#00d4ff] border border-[#0070f3]/30">
+                                  AES-256-GCM
+                                </span>
+                              </h4>
+                              <p className="text-xs text-[#8a99b5] mt-0.5">
+                                Verify your PIN to view delivery details
+                              </p>
+                            </div>
+                          </div>
 
-                        {isDelivered ? (
-                          <span className="text-emerald-400 font-bold flex items-center gap-1">
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>100% Verified Delivery</span>
+                          <button
+                            onClick={handleOpenPinModal}
+                            disabled={isRevealing}
+                            className="px-6 py-2.5 rounded-xl bg-[#0070f3] hover:bg-[#00d4ff] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#0070f3]/40 transition-all hover:scale-105 active:scale-95 shrink-0"
+                          >
+                            <KeyRound className="w-4 h-4" />
+                            <span>Verify PIN</span>
+                          </button>
+                        </div>
+
+                        <div className="pt-2 border-t border-white/5 flex items-center justify-between text-[11px] text-[#6b6b80]">
+                          <span>End-to-end encrypted delivery credentials</span>
+                          <span className="flex items-center gap-1 text-[#00d4ff]/80 font-medium">
+                            <Lock className="w-3 h-3" />
+                            <span>PIN Protection Active</span>
                           </span>
+                        </div>
+                      </div>
+                    ) : (
+                      /* CASE 3: PIN VERIFIED — UNLOCKED DELIVERY DETAILS PANEL */
+                      <div className="space-y-4">
+                        {/* Unlocked Banner with Re-Lock Control */}
+                        <div className="p-3.5 rounded-xl bg-[#0070f3]/10 border border-[#0070f3]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                          <div className="flex items-center gap-2 text-emerald-400 font-bold">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span>PIN Verified • Delivery Details Unlocked</span>
+                            <span className="text-[10px] text-[#8a99b5] font-normal hidden sm:inline">
+                              (Valid for active session)
+                            </span>
+                          </div>
+
+                          <button
+                            onClick={handleLockContent}
+                            className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white/80 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shrink-0 self-start sm:self-auto border border-white/10"
+                            title="Re-lock digital credentials"
+                          >
+                            <Lock className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Lock Content</span>
+                          </button>
+                        </div>
+
+                        {/* SUB-CASE A: GAME ACCOUNT DELIVERY DETAILS */}
+                        {productType === 'GAME_ACCOUNT' ? (
+                          <div className="p-4 sm:p-5 rounded-xl bg-[#101424] border border-[#0070f3]/30 space-y-4">
+                            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                              <div className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                                <UserCheck className="w-4 h-4 text-[#00d4ff]" />
+                                <span>Verified Game Account Credentials</span>
+                              </div>
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                Ready To Play
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {/* Account Username */}
+                              <div className="p-3 rounded-xl bg-[#0a0d18] border border-white/5 space-y-1">
+                                <span className="text-[10px] font-bold text-[#8a99b5] uppercase">
+                                  Account Username / ID
+                                </span>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-mono font-bold text-white text-xs select-all truncate">
+                                    {itemDelivery?.accountUsername || 'vtx_pilot_acc'}
+                                  </span>
+                                  <button
+                                    onClick={() => handleCopy(itemDelivery?.accountUsername || '', `user-${item.gameId}`)}
+                                    className="p-1.5 rounded-lg hover:bg-white/10 text-[#00d4ff] transition-colors"
+                                    title="Copy Username"
+                                  >
+                                    {copiedField === `user-${item.gameId}` ? (
+                                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                    ) : (
+                                      <Copy className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Account Password */}
+                              <div className="p-3 rounded-xl bg-[#0a0d18] border border-white/5 space-y-1">
+                                <span className="text-[10px] font-bold text-[#8a99b5] uppercase">
+                                  Account Password
+                                </span>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="font-mono font-bold text-white text-xs select-all truncate">
+                                    {showPasswordMap[item.gameId]
+                                      ? itemDelivery?.accountPassword || '••••••••'
+                                      : '••••••••••••'}
+                                  </span>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => setShowPasswordMap((prev) => ({ ...prev, [item.gameId]: !prev[item.gameId] }))}
+                                      className="p-1.5 rounded-lg hover:bg-white/10 text-[#8a99b5] hover:text-white transition-colors"
+                                      title={showPasswordMap[item.gameId] ? 'Hide' : 'Reveal'}
+                                    >
+                                      {showPasswordMap[item.gameId] ? (
+                                        <EyeOff className="w-3.5 h-3.5" />
+                                      ) : (
+                                        <Eye className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => handleCopy(itemDelivery?.accountPassword || '', `pass-${item.gameId}`)}
+                                      className="p-1.5 rounded-lg hover:bg-white/10 text-[#00d4ff] transition-colors"
+                                      title="Copy Password"
+                                    >
+                                      {copiedField === `pass-${item.gameId}` ? (
+                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                      ) : (
+                                        <Copy className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Associated Email (if included) */}
+                              {itemDelivery?.accountEmail && (
+                                <div className="p-3 rounded-xl bg-[#0a0d18] border border-white/5 space-y-1">
+                                  <span className="text-[10px] font-bold text-[#8a99b5] uppercase">
+                                    Associated Email
+                                  </span>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-mono font-bold text-white text-xs select-all truncate">
+                                      {itemDelivery.accountEmail}
+                                    </span>
+                                    <button
+                                      onClick={() => handleCopy(itemDelivery.accountEmail || '', `email-${item.gameId}`)}
+                                      className="p-1.5 rounded-lg hover:bg-white/10 text-[#00d4ff] transition-colors"
+                                      title="Copy Email"
+                                    >
+                                      {copiedField === `email-${item.gameId}` ? (
+                                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                      ) : (
+                                        <Copy className="w-3.5 h-3.5" />
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Email Access Credentials (if included) */}
+                              {itemDelivery?.emailPassword && (
+                                <div className="p-3 rounded-xl bg-[#0a0d18] border border-white/5 space-y-1">
+                                  <span className="text-[10px] font-bold text-[#8a99b5] uppercase">
+                                    Email Access Key
+                                  </span>
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-mono font-bold text-white text-xs select-all truncate">
+                                      {showEmailPasswordMap[item.gameId]
+                                        ? itemDelivery.emailPassword
+                                        : '••••••••••••'}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => setShowEmailPasswordMap((prev) => ({ ...prev, [item.gameId]: !prev[item.gameId] }))}
+                                        className="p-1.5 rounded-lg hover:bg-white/10 text-[#8a99b5] hover:text-white transition-colors"
+                                        title={showEmailPasswordMap[item.gameId] ? 'Hide' : 'Reveal'}
+                                      >
+                                        {showEmailPasswordMap[item.gameId] ? (
+                                          <EyeOff className="w-3.5 h-3.5" />
+                                        ) : (
+                                          <Eye className="w-3.5 h-3.5" />
+                                        )}
+                                      </button>
+                                      <button
+                                        onClick={() => handleCopy(itemDelivery.emailPassword || '', `emailpass-${item.gameId}`)}
+                                        className="p-1.5 rounded-lg hover:bg-white/10 text-[#00d4ff] transition-colors"
+                                        title="Copy Email Password"
+                                      >
+                                        {copiedField === `emailpass-${item.gameId}` ? (
+                                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                        ) : (
+                                          <Copy className="w-3.5 h-3.5" />
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Platform Login Link Button */}
+                            {itemDelivery?.platformWebsite && (
+                              <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/5">
+                                <span className="text-[11px] text-[#8a99b5]">
+                                  Official Platform Authentication Portal:
+                                </span>
+                                <a
+                                  href={itemDelivery.platformWebsite}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#0070f3] hover:bg-[#00d4ff] text-white text-xs font-bold transition-all shadow-md active:scale-95"
+                                >
+                                  <span>Open Platform Website</span>
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
+                            )}
+
+                            {/* Security Advisory */}
+                            <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-300 leading-relaxed">
+                              <strong>Important Security Notice:</strong> For your security, log into the official platform immediately, update the account password, and configure your own two-factor authentication (2FA).
+                            </div>
+                          </div>
                         ) : (
-                          <span className="text-amber-400 font-bold flex items-center gap-1">
-                            <Lock className="w-3.5 h-3.5" />
-                            <span>Locked • Payment Required</span>
-                          </span>
+                          /* SUB-CASE B: GAME KEYS, GIFT CARDS & SUBSCRIPTIONS */
+                          <div className="space-y-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-[#14141e] border border-white/10">
+                              <div>
+                                <span className="text-[10px] font-bold text-[#8a99b5] uppercase">
+                                  Digital Activation Key / Code
+                                </span>
+                                <div className="font-mono text-base font-black text-white tracking-widest break-all mt-1">
+                                  {rawKeyText || '••••-••••-••••-••••'}
+                                </div>
+                              </div>
+
+                              <button
+                                onClick={() => rawKeyText && handleCopy(rawKeyText, `key-${item.gameId}`)}
+                                disabled={!rawKeyText}
+                                className="px-5 py-2.5 rounded-xl bg-[#0070f3] hover:bg-[#00d4ff] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-[#0070f3]/30 transition-all active:scale-95 shrink-0"
+                              >
+                                {copiedField === `key-${item.gameId}` ? (
+                                  <>
+                                    <Check className="w-4 h-4 text-emerald-400" />
+                                    <span>{t('orderDetails.copied')}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-4 h-4" />
+                                    <span>{t('orderDetails.copyKey')}</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Activation Instructions */}
+                            {(itemDelivery?.activationGuide || gameCatalogItem?.activationGuide) && (
+                              <div className="p-3.5 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                                <div className="font-bold text-white flex items-center gap-1.5 text-[11px]">
+                                  <FileText className="w-3.5 h-3.5 text-[#00d4ff]" />
+                                  <span>{t('orderDetails.activationGuide')}</span>
+                                </div>
+                                <p className="text-[#a0a0b8] text-[11px] whitespace-pre-line leading-relaxed">
+                                  {itemDelivery?.activationGuide || gameCatalogItem?.activationGuide}
+                                </p>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
+                    )}
 
-                      {/* Key Box with Reveal & Copy */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-[#14141e] border border-white/10">
-                        <div className="font-mono text-sm font-black text-white tracking-widest break-all">
-                          {isDelivered && revealedKeyText
-                            ? revealedKeyText
-                            : '••••-••••-••••-••••'}
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {/* Reveal Key Button */}
-                          <button
-                            onClick={handleRevealKeys}
-                            disabled={!isDelivered || isRevealing}
-                            className={`px-3 py-2 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-all ${
-                              !isDelivered
-                                ? 'bg-white/5 text-[#555] cursor-not-allowed'
-                                : 'bg-white/10 hover:bg-white/15 text-white'
-                            }`}
-                          >
-                            {isRevealing ? (
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            ) : revealedKeyText ? (
-                              <EyeOff className="w-3.5 h-3.5" />
-                            ) : (
-                              <Eye className="w-3.5 h-3.5" />
-                            )}
-                            <span>
-                              {revealedKeyText
-                                ? 'Delivered'
-                                : t('orderDetails.revealKey')}
-                            </span>
-                          </button>
-
-                          {/* Copy Key Button */}
-                          <button
-                            onClick={() => revealedKeyText && handleCopyKey(revealedKeyText)}
-                            disabled={!isDelivered || !revealedKeyText}
-                            className={`px-3 py-2 rounded-lg font-extrabold text-xs flex items-center gap-1.5 transition-all ${
-                              !isDelivered || !revealedKeyText
-                                ? 'bg-white/5 text-[#555] cursor-not-allowed'
-                                : 'bg-[#0070f3] hover:bg-[#0060df] text-white shadow-md active:scale-95'
-                            }`}
-                          >
-                            {copiedKey === revealedKeyText ? (
-                              <>
-                                <Check className="w-3.5 h-3.5" />
-                                <span>{t('orderDetails.copied')}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3.5 h-3.5" />
-                                <span>{t('orderDetails.copyKey')}</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-
-                      {revealError && (
-                        <div className="text-rose-400 text-[11px] font-semibold">
-                          {revealError}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Activation Guide Instructions */}
-                    {gameCatalogItem?.activationGuide && (
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/5 space-y-1">
-                        <div className="font-bold text-white flex items-center gap-1.5 text-[11px]">
-                          <FileText className="w-3.5 h-3.5 text-[#00d4ff]" />
-                          <span>{t('orderDetails.activationGuide')}</span>
-                        </div>
-                        <p className="text-[#a0a0b8] text-[11px] whitespace-pre-line leading-relaxed">
-                          {gameCatalogItem.activationGuide}
-                        </p>
+                    {revealError && (
+                      <div className="text-rose-400 text-xs font-semibold p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30">
+                        {revealError}
                       </div>
                     )}
                   </div>
@@ -877,14 +1295,13 @@ function OrderDetailsContent() {
           })}
         </div>
 
-        {/* ── 5. ORDER SUMMARY SECTION (Matching Image 2) ── */}
+        {/* ── 5. ORDER SUMMARY SECTION ── */}
         <div className="p-6 rounded-2xl bg-[#101018] border border-white/10 shadow-xl space-y-4">
           <h3 className="text-sm font-black text-white uppercase tracking-wider border-b border-white/10 pb-3">
             {t('orderDetails.orderSummary')}
           </h3>
 
           <div className="space-y-3 text-xs">
-            {/* Subtotal */}
             <div className="flex items-center justify-between">
               <span className="text-[#a0a0b8]">{t('orderDetails.subtotal')}</span>
               <span className="font-mono font-bold text-white">
@@ -892,7 +1309,6 @@ function OrderDetailsContent() {
               </span>
             </div>
 
-            {/* Discount if applicable */}
             {order.discountApplied > 0 && (
               <div className="flex items-center justify-between text-emerald-400">
                 <span>{t('orderDetails.discount')}</span>
@@ -902,7 +1318,6 @@ function OrderDetailsContent() {
               </div>
             )}
 
-            {/* Total */}
             <div className="flex items-center justify-between pt-2 border-t border-white/5 text-sm font-black text-white">
               <span>{t('orderDetails.total')}</span>
               <span className="font-mono text-base text-[#00d4ff]">
@@ -910,7 +1325,6 @@ function OrderDetailsContent() {
               </span>
             </div>
 
-            {/* Payment Method */}
             <div className="flex items-center justify-between pt-2 border-t border-white/5">
               <span className="text-[#a0a0b8]">{t('orderDetails.paymentMethod')}</span>
               <span className="font-mono font-bold text-purple-400 uppercase">
@@ -926,7 +1340,6 @@ function OrderDetailsContent() {
               </span>
             </div>
 
-            {/* Payment Status */}
             <div className="flex items-center justify-between">
               <span className="text-[#a0a0b8]">{t('orderDetails.paymentStatus')}</span>
               <span
@@ -949,7 +1362,6 @@ function OrderDetailsContent() {
               </span>
             </div>
 
-            {/* Fulfillment Status */}
             <div className="flex items-center justify-between">
               <span className="text-[#a0a0b8]">{t('orderDetails.fulfillmentStatus')}</span>
               <span
@@ -992,6 +1404,191 @@ function OrderDetailsContent() {
         </div>
 
       </div>
+
+      {/* ── SECURE PIN VERIFICATION & SETUP MODAL ── */}
+      {isPinModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full rounded-3xl bg-[#0c1224] border border-[#1b2a4a] p-6 sm:p-7 shadow-2xl relative space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0070f3]/20 border border-[#0070f3]/40 flex items-center justify-center text-[#00d4ff]">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white">
+                    {pinModalMode === 'setup'
+                      ? 'Set Up Security PIN'
+                      : pinModalMode === 'reset'
+                      ? 'Reset Security PIN'
+                      : 'Enter Security PIN'}
+                  </h3>
+                  <p className="text-xs text-[#8a99b5]">
+                    {pinModalMode === 'setup'
+                      ? 'Protect your digital delivery credentials'
+                      : pinModalMode === 'reset'
+                      ? 'Verify password to update your PIN'
+                      : 'Confirm identity to reveal delivery details'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsPinModalOpen(false)}
+                className="p-2 rounded-xl text-[#8a99b5] hover:text-white hover:bg-white/5 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Error Message */}
+            {pinError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{pinError}</span>
+              </div>
+            )}
+
+            {/* Active Lockout Notice */}
+            {pinStatus.isLocked && (
+              <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold space-y-1">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-rose-400" />
+                  <span>PIN Verification Temporarily Locked</span>
+                </div>
+                <p className="text-[11px] text-rose-400/80">
+                  Too many consecutive failed attempts. Please try again in 15 minutes.
+                </p>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handlePinSubmit} className="space-y-4">
+              {/* Account Password input (Only in Reset mode) */}
+              {pinModalMode === 'reset' && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#8a99b5]">
+                    Account Password
+                  </label>
+                  <input
+                    type="password"
+                    value={accountPasswordInput}
+                    onChange={(e) => setAccountPasswordInput(e.target.value)}
+                    placeholder="Enter your current password"
+                    className="w-full h-11 px-4 rounded-xl bg-[#141a2e] border border-[#1b2a4a] text-sm text-white placeholder-[#6b6b80] focus:border-[#0070f3] outline-none transition-all"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Main PIN input */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-[#8a99b5] flex items-center justify-between">
+                  <span>
+                    {pinModalMode === 'setup'
+                      ? 'New Security PIN (4-6 digits)'
+                      : pinModalMode === 'reset'
+                      ? 'New Security PIN (4-6 digits)'
+                      : 'Security PIN'}
+                  </span>
+                  {pinModalMode === 'verify' && pinStatus.remainingAttempts < 5 && (
+                    <span className="text-[11px] text-amber-400 font-mono">
+                      {pinStatus.remainingAttempts} attempts left
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••"
+                  disabled={pinStatus.isLocked}
+                  autoFocus
+                  className="w-full h-12 px-4 rounded-xl bg-[#141a2e] border border-[#1b2a4a] text-center font-mono text-xl tracking-[0.5em] text-white placeholder-[#6b6b80] focus:border-[#0070f3] outline-none transition-all disabled:opacity-50"
+                  required
+                />
+              </div>
+
+              {/* Confirm PIN input (In setup or reset mode) */}
+              {(pinModalMode === 'setup' || pinModalMode === 'reset') && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-[#8a99b5]">
+                    Confirm Security PIN
+                  </label>
+                  <input
+                    type="password"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={pinConfirmInput}
+                    onChange={(e) => setPinConfirmInput(e.target.value.replace(/\D/g, ''))}
+                    placeholder="••••"
+                    className="w-full h-12 px-4 rounded-xl bg-[#141a2e] border border-[#1b2a4a] text-center font-mono text-xl tracking-[0.5em] text-white placeholder-[#6b6b80] focus:border-[#0070f3] outline-none transition-all"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={pinSubmitting || pinStatus.isLocked}
+                  className="w-full h-11 rounded-xl bg-[#0070f3] hover:bg-[#00d4ff] text-white font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg shadow-[#0070f3]/40 transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+                >
+                  {pinSubmitting ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Lock className="w-4 h-4" />
+                  )}
+                  <span>
+                    {pinModalMode === 'setup'
+                      ? 'Create Security PIN'
+                      : pinModalMode === 'reset'
+                      ? 'Update Security PIN'
+                      : 'Verify & Unlock Details'}
+                  </span>
+                </button>
+              </div>
+
+              {/* Forgot PIN / Reset Link */}
+              {pinModalMode === 'verify' && (
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPinError(null);
+                      setPinInput('');
+                      setPinModalMode('reset');
+                    }}
+                    className="text-xs text-[#00d4ff] hover:underline font-semibold"
+                  >
+                    Forgot your PIN? Reset with account password
+                  </button>
+                </div>
+              )}
+
+              {pinModalMode === 'reset' && (
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPinError(null);
+                      setPinInput('');
+                      setPinModalMode('verify');
+                    }}
+                    className="text-xs text-[#8a99b5] hover:text-white hover:underline"
+                  >
+                    Back to PIN verification
+                  </button>
+                </div>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

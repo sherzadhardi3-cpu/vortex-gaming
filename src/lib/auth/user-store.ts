@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { getPrismaClient } from '../prisma.ts';
 
@@ -21,6 +22,10 @@ export interface StoredUser {
   locale: string;
   currency: string;
   passwordHash?: string;
+  securityPinHash?: string;
+  securityPinCreatedAt?: string;
+  pinFailedAttempts?: number;
+  pinLockedUntil?: string | null;
   discordId?: string;
   discordUsername?: string;
   createdAt: string;
@@ -692,4 +697,229 @@ export async function linkDiscordToUser(
   await syncAccountToPostgres(account);
 
   return { user, account };
+}
+
+/**
+ * Returns security PIN configuration status for a given user.
+ * NEVER returns the PIN hash or any sensitive secrets.
+ */
+export function getUserPinStatus(userId: string): {
+  hasPin: boolean;
+  isLocked: boolean;
+  lockedUntil?: string | null;
+  remainingAttempts: number;
+} {
+  const store = ensureInitialized();
+  const user = store.users[userId];
+  if (!user) {
+    return { hasPin: false, isLocked: false, remainingAttempts: 5 };
+  }
+  const isLocked = Boolean(user.pinLockedUntil && new Date(user.pinLockedUntil).getTime() > Date.now());
+  const failedAttempts = user.pinFailedAttempts || 0;
+  const remainingAttempts = isLocked ? 0 : Math.max(0, 5 - failedAttempts);
+  return {
+    hasPin: Boolean(user.securityPinHash),
+    isLocked,
+    lockedUntil: isLocked ? user.pinLockedUntil : null,
+    remainingAttempts,
+  };
+}
+
+/**
+ * Creates or resets a customer's security PIN.
+ * If user already has a PIN and password, requires verification of account password.
+ */
+export async function setUserSecurityPin(
+  userId: string,
+  pin: string,
+  passwordVerify?: string
+): Promise<{ success: boolean; error?: string }> {
+  const store = ensureInitialized();
+  const user = store.users[userId];
+  if (!user) {
+    return { success: false, error: 'User not found' };
+  }
+
+  const sanitizedPin = (pin || '').trim();
+  if (!/^\d{4,6}$/.test(sanitizedPin)) {
+    return { success: false, error: 'PIN must be between 4 and 6 numeric digits' };
+  }
+
+  // If user already has a PIN and has an account password, verify password identity
+  if (user.securityPinHash && user.passwordHash) {
+    if (!passwordVerify) {
+      return { success: false, error: 'Account password is required to reset your security PIN' };
+    }
+    const isPasswordValid = await verifyPasswordHash(passwordVerify, user.passwordHash);
+    if (!isPasswordValid) {
+      return { success: false, error: 'Incorrect account password' };
+    }
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  const hashedPin = await bcrypt.hash(sanitizedPin, salt);
+  const now = new Date().toISOString();
+
+  user.securityPinHash = hashedPin;
+  user.securityPinCreatedAt = now;
+  user.pinFailedAttempts = 0;
+  user.pinLockedUntil = null;
+  user.updatedAt = now;
+
+  store.users[userId] = user;
+  persistStore();
+  return { success: true };
+}
+
+/**
+ * Verifies a customer's security PIN with rate limiting, attempt tracking, and 15-minute lockouts.
+ * On success, returns an order-scoped, short-lived HMAC-signed authorization token.
+ */
+export async function verifyUserSecurityPin(
+  userId: string,
+  pin: string,
+  orderId?: string
+): Promise<{
+  success: boolean;
+  pinAuthToken?: string;
+  expiresAt?: string;
+  locked?: boolean;
+  lockedUntil?: string | null;
+  remainingAttempts?: number;
+  noPinConfigured?: boolean;
+  error?: string;
+}> {
+  const store = ensureInitialized();
+  const user = store.users[userId];
+  if (!user) {
+    return { success: false, error: 'User not found' };
+  }
+
+  // 1. Check temporary brute-force lockout
+  if (user.pinLockedUntil && new Date(user.pinLockedUntil).getTime() > Date.now()) {
+    const lockMs = new Date(user.pinLockedUntil).getTime() - Date.now();
+    const minutesLeft = Math.ceil(lockMs / 60000);
+    return {
+      success: false,
+      locked: true,
+      lockedUntil: user.pinLockedUntil,
+      remainingAttempts: 0,
+      error: `PIN verification is temporarily locked. Please try again in ${minutesLeft} minute${minutesLeft === 1 ? '' : 's'}.`,
+    };
+  }
+
+  // 2. Check if user has a configured PIN
+  if (!user.securityPinHash) {
+    return {
+      success: false,
+      noPinConfigured: true,
+      error: 'No security PIN is configured for your account. Please set up a PIN.',
+    };
+  }
+
+  const sanitizedPin = (pin || '').trim();
+  const isMatch = await bcrypt.compare(sanitizedPin, user.securityPinHash);
+  const now = new Date().toISOString();
+
+  // 3. Failed Attempt Handling
+  if (!isMatch) {
+    user.pinFailedAttempts = (user.pinFailedAttempts || 0) + 1;
+    const maxAttempts = 5;
+    const remaining = Math.max(0, maxAttempts - user.pinFailedAttempts);
+
+    if (remaining === 0) {
+      // 15-minute lockout on 5 consecutive failures
+      const lockDuration = 15 * 60 * 1000;
+      const lockedUntil = new Date(Date.now() + lockDuration).toISOString();
+      user.pinLockedUntil = lockedUntil;
+      user.updatedAt = now;
+      persistStore();
+      return {
+        success: false,
+        locked: true,
+        lockedUntil,
+        remainingAttempts: 0,
+        error: 'Too many incorrect attempts. Security PIN verification is locked for 15 minutes.',
+      };
+    }
+
+    user.updatedAt = now;
+    persistStore();
+    return {
+      success: false,
+      remainingAttempts: remaining,
+      error: `Incorrect PIN. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`,
+    };
+  }
+
+  // 4. Successful Verification: Reset attempts and lockout
+  user.pinFailedAttempts = 0;
+  user.pinLockedUntil = null;
+  user.updatedAt = now;
+  persistStore();
+
+  // 5. Generate short-lived order-scoped HMAC authorization token (10 minutes TTL)
+  const expiryTime = Date.now() + 10 * 60 * 1000;
+  const payload = {
+    userId: user.id,
+    orderId: orderId || '*',
+    exp: expiryTime,
+    iat: Date.now(),
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  const secret =
+    process.env.SESSION_SECRET ||
+    process.env.GAME_KEY_ENCRYPTION_KEY ||
+    'vortex-delivery-pin-secret-key-default-salt-32b';
+  const signature = crypto.createHmac('sha256', secret).update(payloadB64).digest('base64url');
+  const pinAuthToken = `${payloadB64}.${signature}`;
+
+  return {
+    success: true,
+    pinAuthToken,
+    expiresAt: new Date(expiryTime).toISOString(),
+  };
+}
+
+/**
+ * Validates a short-lived order-scoped PIN authorization token.
+ */
+export function verifyPinAuthToken(
+  token: string | null | undefined,
+  expectedOrderId?: string | null,
+  expectedUserId?: string | null
+): boolean {
+  if (!token || typeof token !== 'string') return false;
+  const parts = token.split('.');
+  if (parts.length !== 2) return false;
+  const [payloadB64, signature] = parts;
+
+  const secret =
+    process.env.SESSION_SECRET ||
+    process.env.GAME_KEY_ENCRYPTION_KEY ||
+    'vortex-delivery-pin-secret-key-default-salt-32b';
+  const expectedSignature = crypto.createHmac('sha256', secret).update(payloadB64).digest('base64url');
+
+  if (
+    signature.length !== expectedSignature.length ||
+    !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  ) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString('utf8'));
+    if (!payload.exp || Date.now() > payload.exp) {
+      return false; // Expired
+    }
+    if (expectedUserId && payload.userId !== expectedUserId) {
+      return false; // Mismatched user
+    }
+    if (expectedOrderId && payload.orderId !== '*' && payload.orderId !== expectedOrderId) {
+      return false; // Mismatched order
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -25,6 +25,35 @@ export interface OrderItem {
   unitPriceIQD: number;
 }
 
+export interface DeliveryItemDetail {
+  gameId: string;
+  title: string;
+  platform: string;
+  productType: 'GAME' | 'DLC' | 'GIFT_CARD' | 'SUBSCRIPTION' | 'GAME_ACCOUNT' | 'TOP_UP' | 'ITUNES';
+  plainTextKey?: string;
+  redemptionCode?: string;
+  activationGuide?: string;
+  accountUsername?: string;
+  accountPassword?: string;
+  accountEmail?: string;
+  emailPassword?: string;
+  platformWebsite?: string;
+  fulfillmentStatus?: string;
+  notes?: string;
+}
+
+export function getPlatformLoginUrl(platform?: string): string {
+  const p = (platform || '').toLowerCase();
+  if (p.includes('steam')) return 'https://store.steampowered.com/login';
+  if (p.includes('playstation') || p.includes('psn') || p.includes('ps')) return 'https://store.playstation.com';
+  if (p.includes('xbox') || p.includes('microsoft')) return 'https://login.live.com';
+  if (p.includes('epic')) return 'https://www.epicgames.com/id/login';
+  if (p.includes('ea') || p.includes('origin')) return 'https://www.ea.com';
+  if (p.includes('rockstar')) return 'https://signin.rockstargames.com';
+  if (p.includes('ubisoft') || p.includes('uplay')) return 'https://account.ubisoft.com';
+  return 'https://store.steampowered.com/login';
+}
+
 export interface AllocatedKeyRecord {
   keyId: string;
   gameId: string;
@@ -33,6 +62,15 @@ export interface AllocatedKeyRecord {
   revealedAt?: string;
 }
 
+export type PaymentProviderType =
+  | 'stripe'
+  | 'fib'
+  | 'fastpay'
+  | 'qi_card'
+  | 'vortex_wallet'
+  | 'iraqi_cards'
+  | 'international_cards';
+
 export interface StoredOrder {
   id: string;
   orderNumber: string;
@@ -40,7 +78,7 @@ export interface StoredOrder {
   customerId: string | null;
   customerName?: string;
   orderAccessToken: string; // High-entropy token for guest ownership validation
-  paymentProvider: 'stripe' | 'fib' | 'fastpay' | 'qi_card';
+  paymentProvider: PaymentProviderType;
   paymentStatus: PaymentState;
   fulfillmentStatus: FulfillmentState;
   items: OrderItem[];
@@ -347,7 +385,7 @@ export function createAuthoritativeOrder(params: {
   convertedTotal?: number;
   rateTimestamp?: string;
   discountApplied?: number;
-  paymentProvider: 'stripe' | 'fib' | 'fastpay' | 'qi_card';
+  paymentProvider: PaymentProviderType;
   isSandbox?: boolean;
 }): StoredOrder {
   const store = ensureInitialized();
@@ -417,6 +455,23 @@ export function getOrderById(orderIdOrNumber: string): StoredOrder | null {
         o.id.toUpperCase() === orderIdOrNumber.toUpperCase()
     ) || null
   );
+}
+
+/**
+ * Retrieves all stored orders.
+ */
+export function getAllOrders(): StoredOrder[] {
+  const store = ensureInitialized();
+  return Object.values(store.orders);
+}
+
+/**
+ * Retrieves an order by paymentIntentId.
+ */
+export function getOrderByPaymentIntentId(paymentIntentId: string): StoredOrder | null {
+  const store = ensureInitialized();
+  if (!paymentIntentId) return null;
+  return Object.values(store.orders).find((o) => o.paymentIntentId === paymentIntentId) || null;
 }
 
 /**
@@ -659,12 +714,51 @@ export function allocateGameKeysForOrder(order: StoredOrder): {
 
     for (const item of order.items) {
       const requiredQty = item.quantity || 1;
+      const catalogItem = GAMES_CATALOG.find((g) => g.id === item.gameId || g.slug === item.gameId);
+      const isAccount = catalogItem?.productType === 'GAME_ACCOUNT' || catalogItem?.category === 'game-accounts';
+      const isSubscription = catalogItem?.productType === 'SUBSCRIPTION' || catalogItem?.category === 'subscriptions';
 
       for (let q = 0; q < requiredQty; q++) {
         if (order.isSandbox) {
-          // SANDBOX / STAGING RULE: Use ONLY clearly labeled dummy keys
+          // SANDBOX / STAGING RULE: Use ONLY clearly labeled dummy keys and test accounts
           const dummyKey = `VTX-SANDBOX-DEMO-${item.gameId.substring(0, 10).toUpperCase()}-${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
-          const encryptedDummy = encryptGameKey(dummyKey);
+          
+          let payloadString = dummyKey;
+          if (isAccount) {
+            const accNum = crypto.randomBytes(3).toString('hex');
+            const accountPayload = {
+              productType: 'GAME_ACCOUNT',
+              plainTextKey: dummyKey,
+              username: `vtx_pilot_${accNum}`,
+              password: `Vtx#${crypto.randomBytes(4).toString('hex')}!`,
+              email: `pilot_${accNum}@vortexmail.demo`,
+              emailPassword: `Mail#${crypto.randomBytes(4).toString('hex')}!`,
+              platformWebsite: getPlatformLoginUrl(catalogItem?.platform || item.platform),
+              instructions: catalogItem?.activationGuide || 'Login using the provided credentials on the official platform portal.',
+            };
+            payloadString = JSON.stringify(accountPayload);
+          } else if (isSubscription) {
+            const subPayload = {
+              productType: 'SUBSCRIPTION',
+              plainTextKey: dummyKey,
+              code: dummyKey,
+              platform: item.platform || catalogItem?.platformName || 'PC',
+              fulfillmentStatus: 'ACTIVATED',
+              instructions: catalogItem?.activationGuide || 'Redeem code on your subscription portal.',
+            };
+            payloadString = JSON.stringify(subPayload);
+          } else {
+            const keyPayload = {
+              productType: catalogItem?.productType || 'GAME',
+              plainTextKey: dummyKey,
+              code: dummyKey,
+              platform: item.platform || catalogItem?.platformName || 'PC',
+              instructions: catalogItem?.activationGuide || 'Redeem activation key on platform client.',
+            };
+            payloadString = JSON.stringify(keyPayload);
+          }
+
+          const encryptedDummy = encryptGameKey(payloadString);
           const keyRecord: AllocatedKeyRecord = {
             keyId: `sandbox_key_${Date.now()}_${q}`,
             gameId: item.gameId,
@@ -752,6 +846,7 @@ export function revealOrderActivationKeys(
 ): {
   success: boolean;
   keys?: Array<{ gameId: string; plainTextKey: string }>;
+  deliveryDetails?: DeliveryItemDetail[];
   isSandbox?: boolean;
   notice?: string;
   error?: string;
@@ -789,17 +884,52 @@ export function revealOrderActivationKeys(
     };
   }
 
-  // 3. Decrypt Keys
+  // 3. Decrypt Keys & Delivery Credentials
   try {
     const now = new Date().toISOString();
-    const decryptedKeys = order.allocatedKeys.map((record) => {
+    const decryptedKeys: Array<{ gameId: string; plainTextKey: string }> = [];
+    const deliveryDetails: DeliveryItemDetail[] = [];
+
+    for (const record of order.allocatedKeys) {
       record.revealedAt = now;
-      const plainText = decryptGameKey(record.encryptedKey);
-      return {
+      const rawDecrypted = decryptGameKey(record.encryptedKey);
+
+      let parsed: any = null;
+      try {
+        if (rawDecrypted.trim().startsWith('{') && rawDecrypted.trim().endsWith('}')) {
+          parsed = JSON.parse(rawDecrypted);
+        }
+      } catch {
+        // Not a JSON payload, treated as raw key string
+      }
+
+      const catalogItem = GAMES_CATALOG.find((g) => g.id === record.gameId || g.slug === record.gameId);
+      const itemMatch = order.items.find((i) => i.gameId === record.gameId);
+      const plainTextKey = parsed?.plainTextKey || parsed?.code || rawDecrypted;
+      const productType = (parsed?.productType || catalogItem?.productType || 'GAME') as any;
+
+      decryptedKeys.push({
         gameId: record.gameId,
-        plainTextKey: plainText,
-      };
-    });
+        plainTextKey,
+      });
+
+      deliveryDetails.push({
+        gameId: record.gameId,
+        title: itemMatch?.title || catalogItem?.title || record.gameId,
+        platform: itemMatch?.platform || catalogItem?.platformName || 'PC',
+        productType,
+        plainTextKey,
+        redemptionCode: parsed?.code || (productType !== 'GAME_ACCOUNT' ? plainTextKey : undefined),
+        activationGuide: parsed?.instructions || catalogItem?.activationGuide || 'Redeem product on your official platform client.',
+        accountUsername: parsed?.username,
+        accountPassword: parsed?.password,
+        accountEmail: parsed?.email,
+        emailPassword: parsed?.emailPassword,
+        platformWebsite: parsed?.platformWebsite || getPlatformLoginUrl(catalogItem?.platform || itemMatch?.platform),
+        fulfillmentStatus: parsed?.fulfillmentStatus || 'DELIVERED',
+        notes: order.isSandbox ? 'TEST ORDER — NO REAL CREDENTIALS (SANDBOX)' : undefined,
+      });
+    }
 
     // If first time delivered/revealed, record timeline event
     const alreadyLoggedDelivery = order.statusHistory.some((h) => h.to === 'DELIVERED');
@@ -819,6 +949,7 @@ export function revealOrderActivationKeys(
     return {
       success: true,
       keys: decryptedKeys,
+      deliveryDetails,
       isSandbox: order.isSandbox,
       notice: order.isSandbox ? 'TEST ORDER — NO REAL PAYMENT' : undefined,
       statusCode: 200,

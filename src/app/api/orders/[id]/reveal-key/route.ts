@@ -54,6 +54,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       keys: result.keys,
+      deliveryDetails: result.deliveryDetails,
       isSandbox: result.isSandbox,
       notice: result.notice,
     });

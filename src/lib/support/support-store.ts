@@ -15,15 +15,19 @@ export interface SupportMessage {
   timestamp: string;
 }
 
+export type TicketStatusType = 'OPEN' | 'IN_PROGRESS' | 'AWAITING_CUSTOMER' | 'RESOLVED' | 'CLOSED';
+
 export interface SupportTicket {
   id: string;
+  ticketNumber?: string;
   userId?: string;
   userEmail: string;
   userName: string;
   subject: string;
-  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+  status: TicketStatusType;
   priority: 'LOW' | 'MEDIUM' | 'HIGH';
-  category: 'KEY_ACTIVATION' | 'ORDER_INQUIRY' | 'PAYMENT' | 'ACCOUNT' | 'GENERAL';
+  category: string;
+  orderId?: string;
   messages: SupportMessage[];
   createdAt: string;
   updatedAt: string;
@@ -129,6 +133,7 @@ export async function syncTicketToPostgres(ticket: SupportTicket): Promise<void>
     const statusMap: Record<string, any> = {
       OPEN: 'OPEN',
       IN_PROGRESS: 'IN_PROGRESS',
+      AWAITING_CUSTOMER: 'AWAITING_CUSTOMER',
       RESOLVED: 'RESOLVED',
       CLOSED: 'CLOSED',
     };
@@ -149,10 +154,12 @@ export async function syncTicketToPostgres(ticket: SupportTicket): Promise<void>
         status: statusMap[ticket.status] || 'OPEN',
         priority: priorityMap[ticket.priority] || 'MEDIUM',
         category: ticket.category,
+        orderId: ticket.orderId || null,
       },
       update: {
         status: statusMap[ticket.status] || 'OPEN',
         priority: priorityMap[ticket.priority] || 'MEDIUM',
+        orderId: ticket.orderId || undefined,
         updatedAt: new Date(),
       },
     });
@@ -242,18 +249,23 @@ export async function createTicket({
   userName,
   subject,
   category = 'GENERAL',
+  orderId,
   initialMessage,
+  message,
 }: {
   userId?: string;
   userEmail: string;
   userName: string;
   subject: string;
-  category?: SupportTicket['category'];
-  initialMessage: string;
+  category?: string;
+  orderId?: string;
+  initialMessage?: string;
+  message?: string;
 }): Promise<SupportTicket> {
   const store = ensureInitialized();
   const ticketId = `tkt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const now = new Date().toISOString();
+  const rawMessage = (initialMessage || message || '').trim();
 
   const newTicket: SupportTicket = {
     id: ticketId,
@@ -264,13 +276,14 @@ export async function createTicket({
     status: 'OPEN',
     priority: 'MEDIUM',
     category,
+    orderId: orderId?.trim() || undefined,
     messages: [
       {
         id: `msg_${Date.now()}_1`,
         ticketId,
         sender: 'CUSTOMER',
         senderName: userName,
-        message: initialMessage.trim(),
+        message: rawMessage,
         timestamp: now,
       },
       // Automated instant confirmation
@@ -294,6 +307,46 @@ export async function createTicket({
     syncMessageToPostgres(msg, newTicket).catch(() => {});
   }
   return newTicket;
+}
+
+/**
+ * Update support ticket status with customer isolation check
+ */
+export async function updateTicketStatus({
+  ticketId,
+  status,
+  requestingUserId,
+  requestingEmail,
+  isAdmin = false,
+}: {
+  ticketId: string;
+  status: TicketStatusType;
+  requestingUserId?: string;
+  requestingEmail?: string;
+  isAdmin?: boolean;
+}): Promise<SupportTicket> {
+  const store = ensureInitialized();
+  const ticket = store[ticketId];
+
+  if (!ticket) {
+    throw new Error('Ticket not found');
+  }
+
+  // Security check: non-admin can only close/modify their own ticket
+  if (!isAdmin) {
+    const isOwner =
+      (requestingUserId && ticket.userId === requestingUserId) ||
+      (requestingEmail && ticket.userEmail.toLowerCase().trim() === requestingEmail.toLowerCase().trim());
+    if (!isOwner) {
+      throw new Error('Unauthorized to modify this ticket');
+    }
+  }
+
+  ticket.status = status;
+  ticket.updatedAt = new Date().toISOString();
+  persistTickets();
+  syncTicketToPostgres(ticket).catch(() => {});
+  return ticket;
 }
 
 /**

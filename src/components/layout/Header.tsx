@@ -96,7 +96,7 @@ function SecondaryNavLinks({
                   : 'bg-[#0c1326] text-[#8a99b5] hover:text-white hover:bg-white/5 border border-[#1b2a4a]/40'
               }`}
             >
-              {item.isApple && <Apple className="w-3.5 h-3.5 text-[#00d4ff] shrink-0" />}
+              {item.isApple && <Apple className="w-3.5 h-3.5 text-white/90 shrink-0 fill-current" />}
               <span className="truncate">{t(item.labelKey)}</span>
             </Link>
           );
@@ -115,11 +115,11 @@ function SecondaryNavLinks({
             href={item.href}
             className={`px-3.5 py-1.5 text-xs rounded-lg transition-all whitespace-nowrap flex items-center gap-1.5 ${
               isActive
-                ? 'bg-[#0070f3] text-white font-bold shadow-sm shadow-[#0070f3]/30 border border-[#0070f3]'
+                ? 'bg-[#0c162d] text-white font-bold shadow-sm shadow-[#0070f3]/30 border border-[#0070f3]'
                 : 'text-[#8a99b5] hover:text-white hover:bg-white/5 border border-transparent font-medium'
             }`}
           >
-            {item.isApple && <Apple className="w-3.5 h-3.5 text-[#00d4ff] shrink-0" />}
+            {item.isApple && <Apple className="w-3.5 h-3.5 text-white/90 shrink-0 fill-current" />}
             <span>{t(item.labelKey)}</span>
           </Link>
         );
@@ -275,7 +275,7 @@ export function Header() {
               <button
                 type="submit"
                 aria-label="Search"
-                className="absolute right-1.5 top-1.5 bottom-1.5 px-3.5 bg-[#0070f3] hover:bg-[#00d4ff] text-white rounded-lg flex items-center justify-center transition-all shadow-sm shadow-[#0070f3]/40 group"
+                className="absolute right-1.5 top-1.5 bottom-1.5 px-3.5 bg-[#00d4ff] hover:bg-[#38bdf8] text-[#060a17] hover:text-white rounded-lg flex items-center justify-center transition-all shadow-sm shadow-[#00d4ff]/30 group"
               >
                 <Search className="w-4 h-4 group-hover:scale-110 transition-transform" />
               </button>
@@ -312,10 +312,51 @@ export function Header() {
             )}
           </div>
 
-          {/* Right Action Icons & Controls */}
+          {/* Right Action Icons & Controls (Ordered to Match Reference Screenshot) */}
           <div className="flex items-center gap-2 sm:gap-3">
             
-            {/* Premium Multi-Currency Dropdown */}
+            {/* 1. Language Selector (First) */}
+            <div className="relative" ref={langMenuRef}>
+              <button
+                onClick={() => {
+                  setLangMenuOpen(!langMenuOpen);
+                  setCurrencyMenuOpen(false);
+                  setUserMenuOpen(false);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0c1326] border border-[#1b2a4a] hover:border-[#0070f3]/50 text-xs font-medium text-[#8a99b5] hover:text-white transition-colors"
+                title="Select Language"
+              >
+                <Globe className="w-3.5 h-3.5 text-[#00d4ff]" />
+                <span className="font-semibold text-white capitalize hidden sm:inline">
+                  {LANGUAGES.find((l) => l.code === language)?.name || 'English'}
+                </span>
+                <span className="font-semibold text-white uppercase sm:hidden">
+                  {language}
+                </span>
+                <ChevronDown className={`w-3 h-3 text-[#7888a6] transition-transform duration-200 ${langMenuOpen ? 'rotate-180 text-[#00d4ff]' : ''}`} />
+              </button>
+
+              {langMenuOpen && (
+                <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-44 bg-[#0c1326] border border-[#1b2a4a] rounded-xl shadow-2xl py-1.5 z-50`}>
+                  {LANGUAGES.map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => handleLanguageChange(lang.code as SupportedLanguage)}
+                      className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
+                        language === lang.code
+                          ? 'text-[#00d4ff] bg-white/5 font-bold'
+                          : 'text-[#8a99b5] hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <span>{lang.nativeName}</span>
+                      <span className="uppercase text-[10px] text-[#7888a6]">{lang.code}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Multi-Currency Dropdown (Second - Displays IQ IQD matching reference) */}
             <div className="relative" ref={currencyMenuRef}>
               <button
                 onClick={() => {
@@ -328,9 +369,22 @@ export function Header() {
                 aria-label="Select Currency"
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0c1326] border border-[#1b2a4a] hover:border-[#0070f3]/50 text-xs font-medium text-[#8a99b5] hover:text-white transition-all shadow-sm group"
               >
-                <Coins className="w-3.5 h-3.5 text-[#00d4ff] group-hover:scale-110 transition-transform" />
-                <span className="font-mono font-bold text-white text-xs">{currency}</span>
-                <span className="text-[#00d4ff] font-bold text-[11px] hidden sm:inline">({activeCurrencyConfig.symbol})</span>
+                <span className="flex items-center gap-1 font-mono font-bold text-white text-xs">
+                  <span className="text-[10px] text-[#00d4ff] font-extrabold uppercase tracking-tight">
+                    {currency === 'IQD'
+                      ? 'IQ'
+                      : currency === 'USD'
+                      ? 'US'
+                      : currency === 'EUR'
+                      ? 'EU'
+                      : currency === 'TRY'
+                      ? 'TR'
+                      : currency === 'SAR'
+                      ? 'SA'
+                      : 'AE'}
+                  </span>
+                  <span>{currency}</span>
+                </span>
                 <ChevronDown className={`w-3 h-3 text-[#7888a6] transition-transform duration-200 ${currencyMenuOpen ? 'rotate-180 text-[#00d4ff]' : ''}`} />
               </button>
 
@@ -391,57 +445,7 @@ export function Header() {
               )}
             </div>
 
-            {/* Language Selector */}
-            <div className="relative" ref={langMenuRef}>
-              <button
-                onClick={() => {
-                  setLangMenuOpen(!langMenuOpen);
-                  setCurrencyMenuOpen(false);
-                  setUserMenuOpen(false);
-                }}
-                className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0c1326] border border-[#1b2a4a] hover:border-[#0070f3]/50 text-xs font-medium text-[#8a99b5] hover:text-white transition-colors"
-                title="Select Language"
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span className="uppercase">{language}</span>
-                <ChevronDown className="w-3 h-3 text-[#7888a6]" />
-              </button>
-
-              {langMenuOpen && (
-                <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-44 bg-[#0c1326] border border-[#1b2a4a] rounded-xl shadow-2xl py-1.5 z-50`}>
-                  {LANGUAGES.map((lang) => (
-                    <button
-                      key={lang.code}
-                      onClick={() => handleLanguageChange(lang.code as SupportedLanguage)}
-                      className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between transition-colors ${
-                        language === lang.code
-                          ? 'text-[#00d4ff] bg-white/5 font-bold'
-                          : 'text-[#8a99b5] hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      <span>{lang.nativeName}</span>
-                      <span className="uppercase text-[10px] text-[#7888a6]">{lang.code}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Wishlist */}
-            <Link
-              href="/wishlist"
-              className="relative p-2 rounded-xl bg-[#0c1326] border border-[#1b2a4a] hover:border-[#0070f3]/50 text-[#8a99b5] hover:text-white transition-colors"
-              title={t('nav.wishlist')}
-            >
-              <Heart className="w-4 h-4" />
-              {wishlistCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-[#060a17]">
-                  {wishlistCount}
-                </span>
-              )}
-            </Link>
-
-            {/* Shopping Cart */}
+            {/* 3. Shopping Cart (Third) */}
             <Link
               href="/cart"
               className="relative p-2 rounded-xl bg-[#0c1326] border border-[#1b2a4a] hover:border-[#0070f3]/50 text-[#8a99b5] hover:text-white transition-colors"
@@ -455,33 +459,43 @@ export function Header() {
               )}
             </Link>
 
-            {/* Auth / Account */}
-            <div className="relative">
-              {isAuthenticated ? (
-                <div>
-                  <button
-                    onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 pl-2 pr-3 py-1.5 bg-[#0c1326] border border-[#1b2a4a] rounded-xl hover:border-[#0070f3]/50 transition-all text-xs font-semibold"
-                  >
-                    {user?.avatarUrl ? (
-                      <img
-                        src={user.avatarUrl}
-                        alt={user.firstName}
-                        className="w-6 h-6 rounded-lg object-cover ring-1 ring-[#0070f3]/40"
-                      />
-                    ) : (
-                      <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#00d4ff] to-[#0070f3] flex items-center justify-center text-white font-bold text-[10px]">
-                        {user?.firstName?.[0] || 'U'}
-                      </div>
-                    )}
-                    <span className="hidden sm:inline text-white max-w-[90px] truncate">
-                      {user?.displayName || user?.firstName}
-                    </span>
-                    <ChevronDown className="w-3 h-3 text-[#7888a6]" />
-                  </button>
+            {/* 4. User Profile Avatar with Online Badge & Dropdown (Fourth) */}
+            <div className="relative" ref={userMenuRef}>
+              <button
+                onClick={() => {
+                  setUserMenuOpen(!userMenuOpen);
+                  setCurrencyMenuOpen(false);
+                  setLangMenuOpen(false);
+                }}
+                className="flex items-center gap-1.5 p-0.5 rounded-full hover:ring-2 hover:ring-[#0070f3]/60 transition-all group"
+                aria-label="User profile menu"
+              >
+                <div className="relative">
+                  {isAuthenticated && user?.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.firstName}
+                      className="w-8 h-8 rounded-full object-cover ring-2 ring-[#0070f3]/40"
+                    />
+                  ) : isAuthenticated ? (
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#00d4ff] to-[#0070f3] flex items-center justify-center text-white font-bold text-xs ring-2 ring-[#0070f3]/40">
+                      {user?.firstName?.[0] || 'U'}
+                    </div>
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-[#0c1326] border border-[#1b2a4a] flex items-center justify-center text-[#8a99b5] group-hover:text-white group-hover:border-[#0070f3]">
+                      <User className="w-4 h-4" />
+                    </div>
+                  )}
+                  {/* Green online status badge */}
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-[#060a17]" />
+                </div>
+                <ChevronDown className={`w-3 h-3 text-[#7888a6] transition-transform duration-200 ${userMenuOpen ? 'rotate-180 text-[#00d4ff]' : ''}`} />
+              </button>
 
-                  {userMenuOpen && (
-                    <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-60 bg-[#0c1326] border border-[#1b2a4a] rounded-2xl shadow-2xl py-2 z-50`}>
+              {userMenuOpen && (
+                <div className={`absolute ${isRTL ? 'left-0' : 'right-0'} mt-2 w-60 bg-[#0c1326] border border-[#1b2a4a] rounded-2xl shadow-2xl py-2 z-50 ring-1 ring-black/60`}>
+                  {isAuthenticated ? (
+                    <>
                       <div className="px-4 py-3 border-b border-[#142038]">
                         {user?.avatarUrl && (
                           <img
@@ -551,21 +565,16 @@ export function Header() {
                           onClick={() => setUserMenuOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#8a99b5] hover:text-white hover:bg-white/5 transition-colors"
                         >
-                          <Lock className="w-4 h-4 text-indigo-400" />
+                          <Lock className="w-4 h-4 text-[#00d4ff]" />
                           <span>{t('profilePage.security')}</span>
                         </Link>
 
                         <Link
-                          href="/account?tab=support"
-                          onClick={() => {
-                            setUserMenuOpen(false);
-                            if (typeof window !== 'undefined') {
-                              window.dispatchEvent(new CustomEvent('vtx_open_support_widget'));
-                            }
-                          }}
+                          href="/support"
+                          onClick={() => setUserMenuOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2 text-xs text-[#8a99b5] hover:text-white hover:bg-white/5 transition-colors"
                         >
-                          <Headphones className="w-4 h-4 text-[#0070f3]" />
+                          <Headphones className="w-4 h-4 text-[#00d4ff]" />
                           <span>{t('profilePage.support')}</span>
                         </Link>
 
@@ -593,28 +602,55 @@ export function Header() {
                           <span>{t('nav.logout')}</span>
                         </button>
                       </div>
+                    </>
+                  ) : (
+                    <div className="p-3 space-y-3">
+                      <div className="text-center pb-2 border-b border-[#142038]">
+                        <div className="text-xs font-bold text-white">Welcome Gamer</div>
+                        <div className="text-[11px] text-[#7888a6]">Sign in to access your keys & orders</div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Link
+                          href="/auth/login"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="w-full py-2 px-3 rounded-xl bg-[#0070f3] hover:bg-[#00d4ff] text-white text-xs font-bold flex items-center justify-center transition-all shadow-md shadow-[#0070f3]/30"
+                        >
+                          {t('nav.login')}
+                        </Link>
+                        <Link
+                          href="/auth/register"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="w-full py-2 px-3 rounded-xl bg-[#0c1626] border border-[#1b2a4a] hover:border-[#0070f3]/50 text-white text-xs font-semibold flex items-center justify-center transition-all"
+                        >
+                          {t('nav.register')}
+                        </Link>
+                      </div>
+                      <div className="pt-2 border-t border-[#142038] space-y-1">
+                        <Link
+                          href="/account?tab=orders"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-[#8a99b5] hover:text-white hover:bg-white/5 transition-colors"
+                        >
+                          <PackageCheck className="w-3.5 h-3.5 text-[#00d4ff]" />
+                          <span>Order Lookup</span>
+                        </Link>
+                        <Link
+                          href="/support"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-[#8a99b5] hover:text-white hover:bg-white/5 transition-colors"
+                        >
+                          <Headphones className="w-3.5 h-3.5 text-[#00d4ff]" />
+                          <span>Support Center</span>
+                        </Link>
+                      </div>
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <Link
-                    href="/auth/login"
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white hover:text-[#00d4ff] transition-colors"
-                  >
-                    {t('nav.login')}
-                  </Link>
-                  <Link
-                    href="/auth/register"
-                    className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-[#0070f3] hover:bg-[#00d4ff] text-white transition-all shadow-md shadow-[#0070f3]/30"
-                  >
-                    {t('nav.register')}
-                  </Link>
-                </div>
               )}
             </div>
+          </div>
 
-            {/* Mobile Menu Toggle */}
+          {/* Mobile Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-xl bg-[#0c1326] border border-[#1b2a4a] text-[#8a99b5] hover:text-white"
@@ -622,7 +658,6 @@ export function Header() {
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
-        </div>
 
         {/* Secondary Navigation Bar */}
         <Suspense fallback={<div className="h-9" />}>

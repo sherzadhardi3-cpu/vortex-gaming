@@ -1,13 +1,17 @@
 'use client';
 
-// VORTEX GAMING — Premium Homepage Hero Section & Benefits Bar
-// Inspired by high-end gaming store aesthetic: 66/34 two-column hero layout,
-// platform shortcut bar, 3D gift cards & subscription fan illustrations,
-// and horizontal 4-pillar trust & benefits bar.
+// VORTEX GAMING — Asymmetric 2-Column Hero Section & Value Proposition Bar
+// Matches reference screenshot:
+// - Left Col (~68%): Large "GAME ACCOUNTS" Cinematic Banner with character artwork,
+//   "POPULAR" badge, "Play More. Pay Less.", "Shop Now ->", and platform selector (Steam, PlayStation, Xbox, Epic Games, EA, Nintendo, PC Games).
+// - Right Col (~32%): Two stacked promotional banners:
+//   1. Top Card: "GIFT CARDS" with fanned PlayStation, Xbox, Steam cards.
+//   2. Bottom Card: "SUBSCRIPTIONS" with fanned Xbox Game Pass, PS Plus, EA Play cards.
+// - Full-width 4-Pillar Trust & Benefits Bar directly below.
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Zap, ShieldCheck, CreditCard, Headphones } from 'lucide-react';
+import { ArrowRight, Zap, ShieldCheck, CreditCard, Headphones, Sparkles } from 'lucide-react';
 import { useCurrencyStore } from '@/lib/store/useCurrencyStore';
 import { GAMES_CATALOG } from '@/lib/data/games';
 import { useTranslation } from '@/lib/i18n';
@@ -38,10 +42,10 @@ function XboxIcon({ className = 'w-5 h-5' }: { className?: string }) {
   );
 }
 
-function EpicIcon({ className = 'w-5 h-5' }: { className?: string }) {
+function EpicGamesIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={`${className} fill-current`} aria-hidden="true">
-      <path d="M12 0L2 4v11.5c0 5 4.5 7.5 10 8.5 5.5-1 10-3.5 10-8.5V4L12 0zm0 3.2l7 2.8v8.9c0 3.3-3 5.3-7 6.1-4-.8-7-2.8-7-6.1V6l7-2.8zm-3 4.5v8.6h6v-2.2h-3.6v-1.1h3.1v-2.1h-3.1V9.7h3.6V7.7H9z" />
+      <path d="M4 2.5C4 2.5 12 0 12 0s8 2.5 8 2.5v12.2c0 4.8-8 9.3-8 9.3s-8-4.5-8-9.3V2.5zm8 2.1l-5.3 1.6v8.4c0 3.2 5.3 6.4 5.3 6.4s5.3-3.2 5.3-6.4V6.2L12 4.6zm-2.8 4.2h5.6v1.9h-3.6v1.4h3.2v1.8h-3.2v1.5h3.6v1.9H9.2V8.8z" />
     </svg>
   );
 }
@@ -49,96 +53,96 @@ function EpicIcon({ className = 'w-5 h-5' }: { className?: string }) {
 function EAIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={`${className} fill-current`} aria-hidden="true">
-      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm-1.8 4.5h3.6l3.6 11h-2.5l-.8-2.6h-4.2l-.8 2.6H6.6l3.6-11zm1.8 2.8l-1.5 4.2h3l-1.5-4.2z" />
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1.8 14.5l-1.2-2.5H6.2l-.7 2.5H4l3.5-10h1.8l3.5 10h-1.6zm8.8 0h-4.8V7.5h4.6v1.8h-2.8v1.9h2.4v1.7h-2.4v1.8h3v1.8zm-7.6-4.2l-1.3-2.9-1.3 2.9h2.6z" />
     </svg>
   );
 }
 
-// ─── 3D-Angled Fanned Cards Visual Components ────────────────────────────────
-
-function GiftCardFan() {
+function NintendoIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
-    <div className="relative w-36 h-28 sm:w-44 sm:h-32 shrink-0 select-none pointer-events-none">
-      {/* PlayStation $50 (Left - Angled) */}
-      <div className="absolute left-0 top-3 w-24 h-16 sm:w-28 sm:h-18 rounded-xl bg-gradient-to-br from-[#00439c] via-[#002f70] to-[#001c44] border border-[#0070f3]/40 shadow-xl shadow-black/80 -rotate-12 transition-transform hover:-rotate-16 flex flex-col justify-between p-2 overflow-hidden">
-        <div className="flex items-center justify-between text-white">
-          <PlayStationIcon className="w-3.5 h-3.5 text-white/90" />
-          <span className="text-[10px] font-mono font-black text-white/90">$50</span>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent" />
-        <div className="text-[8px] font-mono font-bold tracking-wider text-blue-200 uppercase truncate">
-          PlayStation
-        </div>
-      </div>
-
-      {/* Xbox $50 (Center - Upright) */}
-      <div className="absolute left-6 top-1 w-24 h-16 sm:w-28 sm:h-18 rounded-xl bg-gradient-to-br from-[#107c10] via-[#0b5c0b] to-[#053805] border border-emerald-400/40 shadow-xl shadow-black/80 rotate-2 z-10 flex flex-col justify-between p-2 overflow-hidden">
-        <div className="flex items-center justify-between text-white">
-          <XboxIcon className="w-3.5 h-3.5 text-white/90" />
-          <span className="text-[10px] font-mono font-black text-white/90">$50</span>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-tr from-white/15 via-transparent to-transparent" />
-        <div className="text-[8px] font-mono font-bold tracking-wider text-emerald-200 uppercase truncate">
-          Xbox Card
-        </div>
-      </div>
-
-      {/* Steam $50 (Right - Angled Front) */}
-      <div className="absolute left-14 top-2 w-24 h-16 sm:w-28 sm:h-18 rounded-xl bg-gradient-to-br from-[#1b2838] via-[#101b2b] to-[#070d17] border border-[#00d4ff]/50 shadow-2xl shadow-black/90 rotate-14 z-20 flex flex-col justify-between p-2 overflow-hidden">
-        <div className="flex items-center justify-between text-white">
-          <SteamIcon className="w-3.5 h-3.5 text-[#00d4ff]" />
-          <span className="text-[10px] font-mono font-black text-[#00d4ff]">$50</span>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 via-transparent to-transparent" />
-        <div className="text-[8px] font-mono font-bold tracking-wider text-cyan-200 uppercase truncate">
-          Steam Wallet
-        </div>
-      </div>
-    </div>
+    <svg viewBox="0 0 24 24" className={`${className} fill-current`} aria-hidden="true">
+      <path d="M0 4.382C0 1.966 1.966 0 4.382 0H9.5v24H4.382C1.966 24 0 22.034 0 19.618V4.382zm7.15 4.343a1.59 1.59 0 100-3.18 1.59 1.59 0 000 3.18zm5.7 15.275h5.118C20.384 24 22.35 22.034 22.35 19.618V4.382C22.35 1.966 20.384 0 17.968 0H12.85v24zm3.95-10.742a1.59 1.59 0 100-3.18 1.59 1.59 0 000 3.18z" />
+    </svg>
   );
 }
 
-function SubscriptionCardFan() {
+function PCGamesIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
-    <div className="relative w-36 h-28 sm:w-44 sm:h-32 shrink-0 select-none pointer-events-none">
-      {/* Xbox Game Pass (Left - Angled) */}
-      <div className="absolute left-0 top-3 w-24 h-16 sm:w-28 sm:h-18 rounded-xl bg-gradient-to-br from-[#0e7a0d] via-[#095708] to-[#042e04] border border-emerald-400/40 shadow-xl shadow-black/80 -rotate-12 transition-transform flex flex-col justify-between p-2 overflow-hidden">
-        <div className="flex items-center justify-between text-white">
-          <XboxIcon className="w-3.5 h-3.5 text-white/90" />
-          <span className="text-[8px] font-extrabold px-1 rounded bg-black/40 text-emerald-300">PASS</span>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent" />
-        <div className="text-[8px] font-mono font-bold tracking-wider text-emerald-100 uppercase truncate">
-          Game Pass
-        </div>
-      </div>
-
-      {/* PlayStation Plus (Center - Upright) */}
-      <div className="absolute left-6 top-1 w-24 h-16 sm:w-28 sm:h-18 rounded-xl bg-gradient-to-br from-[#003791] via-[#00225d] to-[#001133] border border-[#0070f3]/40 shadow-xl shadow-black/80 rotate-2 z-10 flex flex-col justify-between p-2 overflow-hidden">
-        <div className="flex items-center justify-between text-white">
-          <PlayStationIcon className="w-3.5 h-3.5 text-amber-400" />
-          <span className="text-[9px] font-black text-amber-400">+</span>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-tr from-white/15 via-transparent to-transparent" />
-        <div className="text-[8px] font-mono font-bold tracking-wider text-blue-200 uppercase truncate">
-          PS Plus
-        </div>
-      </div>
-
-      {/* EA Play (Right - Angled Front) */}
-      <div className="absolute left-14 top-2 w-24 h-16 sm:w-28 sm:h-18 rounded-xl bg-gradient-to-br from-[#d92525] via-[#941111] to-[#4d0000] border border-rose-500/50 shadow-2xl shadow-black/90 rotate-14 z-20 flex flex-col justify-between p-2 overflow-hidden">
-        <div className="flex items-center justify-between text-white">
-          <EAIcon className="w-3.5 h-3.5 text-white" />
-          <span className="text-[8px] font-extrabold px-1 rounded bg-black/40 text-rose-200">PLAY</span>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-tr from-white/20 via-transparent to-transparent" />
-        <div className="text-[8px] font-mono font-bold tracking-wider text-rose-100 uppercase truncate">
-          EA Play
-        </div>
-      </div>
-    </div>
+    <svg viewBox="0 0 24 24" className={`${className} fill-current`} aria-hidden="true">
+      <path d="M20 3H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h6l-2 3v1h8v-1l-2-3h6c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 12H4V5h16v10z" />
+    </svg>
   );
 }
+
+// ─── Platform Definitions ────────────────────────────────────────────────────
+
+interface PlatformOption {
+  id: string;
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  accentColor: string;
+  hoverBorder: string;
+}
+
+const HERO_PLATFORMS: PlatformOption[] = [
+  {
+    id: 'steam',
+    name: 'Steam',
+    href: '/platform/steam',
+    icon: SteamIcon,
+    accentColor: '#00d4ff',
+    hoverBorder: 'hover:border-[#00d4ff]',
+  },
+  {
+    id: 'playstation',
+    name: 'PlayStation',
+    href: '/platform/playstation',
+    icon: PlayStationIcon,
+    accentColor: '#0070f3',
+    hoverBorder: 'hover:border-[#0070f3]',
+  },
+  {
+    id: 'xbox',
+    name: 'Xbox',
+    href: '/platform/xbox',
+    icon: XboxIcon,
+    accentColor: '#107c10',
+    hoverBorder: 'hover:border-emerald-400',
+  },
+  {
+    id: 'epic',
+    name: 'Epic Games',
+    href: '/store?platform=epic',
+    icon: EpicGamesIcon,
+    accentColor: '#ffffff',
+    hoverBorder: 'hover:border-white',
+  },
+  {
+    id: 'ea',
+    name: 'EA Play',
+    href: '/store?platform=ea',
+    icon: EAIcon,
+    accentColor: '#ff4757',
+    hoverBorder: 'hover:border-rose-400',
+  },
+  {
+    id: 'nintendo',
+    name: 'Nintendo',
+    href: '/store?platform=nintendo',
+    icon: NintendoIcon,
+    accentColor: '#e60012',
+    hoverBorder: 'hover:border-rose-400',
+  },
+  {
+    id: 'pc-games',
+    name: 'PC Games',
+    href: '/store?category=pc-games',
+    icon: PCGamesIcon,
+    accentColor: '#0070f3',
+    hoverBorder: 'hover:border-[#0070f3]',
+  },
+];
 
 // ─── Main HeroSection Component ──────────────────────────────────────────────
 
@@ -146,21 +150,13 @@ export function HeroSection() {
   const { format } = useCurrencyStore();
   const { t } = useTranslation();
   const [mounted, setMounted] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<string>('steam');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Spotlight top title (for hydration-safe pricing checks and deal highlight)
   const spotlightGame = GAMES_CATALOG[0];
-
-  const platformTiles = [
-    { id: 'steam', name: 'Steam', href: '/platform/steam', icon: SteamIcon, active: true },
-    { id: 'playstation', name: 'PlayStation', href: '/platform/playstation', icon: PlayStationIcon, active: false },
-    { id: 'xbox', name: 'Xbox', href: '/platform/xbox', icon: XboxIcon, active: false },
-    { id: 'epic-games', name: 'Epic Games', href: '/platform/epic-games', icon: EpicIcon, active: false },
-    { id: 'ea', name: 'EA', href: '/store?platform=ea', icon: EAIcon, active: false },
-  ];
 
   const benefits = [
     {
@@ -188,165 +184,234 @@ export function HeroSection() {
   return (
     <section className="relative pt-32 pb-8 sm:pt-36 sm:pb-12 bg-[#060a17] overflow-hidden">
       {/* Ambient Radial Spotlight */}
-      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[850px] h-[350px] bg-[#0070f3]/10 blur-[140px] pointer-events-none rounded-full" />
-      <div className="absolute top-24 left-10 w-72 h-72 bg-[#00d4ff]/5 blur-[100px] pointer-events-none rounded-full" />
+      <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[950px] h-[400px] bg-[#0070f3]/12 blur-[160px] pointer-events-none rounded-full" />
+      <div className="absolute top-24 left-10 w-80 h-80 bg-[#00d4ff]/8 blur-[120px] pointer-events-none rounded-full" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         
-        {/* ─── Hero Two-Column Grid (66% / 34%) ────────────────────────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* ─── Two-Column Asymmetric Hero Layout (Matches Reference Screenshot) ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-stretch">
           
-          {/* Left Column: GAME ACCOUNTS Cinematic Banner (approx 66% width) */}
-          <div className="lg:col-span-8 relative rounded-3xl overflow-hidden border border-[#1b2a4a] bg-[#080d1f] flex flex-col justify-between shadow-2xl min-h-[380px] sm:min-h-[420px] p-6 sm:p-9 group">
+          {/* ─── LEFT COLUMN: Large GAME ACCOUNTS Cinematic Banner (col-span-8) ─── */}
+          <div className="lg:col-span-8 relative rounded-3xl overflow-hidden border border-[#1b2a4a] bg-[#080d1f] flex flex-col justify-between shadow-2xl min-h-[460px] sm:min-h-[500px] lg:min-h-[520px] p-6 sm:p-9 lg:p-10 group">
             
-            {/* Cinematic Cyberpunk Atmosphere Background */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-[#060a17] via-[#091329] to-[#040814]" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_75%_35%,_var(--tw-gradient-stops))] from-[#0070f3]/30 via-transparent to-transparent pointer-events-none" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_80%,_var(--tw-gradient-stops))] from-[#00d4ff]/15 via-transparent to-transparent pointer-events-none" />
-            
-            {/* Subtle Geometric Overlay */}
+            {/* Cinematic Game Characters Artwork (Ghost, Goku, Kratos, etc.) */}
+            <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+              <img
+                src="/images/hero-game-accounts-banner.jpg"
+                alt="VORTEX GAMING Universe"
+                className="w-full h-full object-cover object-[center_right] sm:object-right opacity-80 group-hover:scale-105 transition-transform duration-1000 ease-out"
+              />
+              {/* Directional contrast gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-[#060a17] via-[#060a17]/90 via-50% to-transparent sm:via-[#060a17]/85" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#060a17] via-[#060a17]/40 to-transparent opacity-90" />
+            </div>
+
+            {/* Subtle Geometric Grid */}
             <div
-              className="absolute inset-0 opacity-[0.04] pointer-events-none"
+              className="absolute inset-0 opacity-[0.03] pointer-events-none z-0"
               style={{
                 backgroundImage: `linear-gradient(to right, #00d4ff 1px, transparent 1px), linear-gradient(to bottom, #00d4ff 1px, transparent 1px)`,
                 backgroundSize: '36px 36px',
               }}
             />
 
-            {/* Top / Headline Part */}
+            {/* Left-Aligned Headline Content */}
             <div className="relative z-10 space-y-3 sm:space-y-4 max-w-xl">
               
-              {/* Popular Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-black/60 border border-white/20 backdrop-blur-md text-white text-[11px] font-black uppercase tracking-widest shadow-sm">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00d4ff] animate-pulse" />
+              {/* "POPULAR" Eyebrow Pill */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 border border-white/15 text-white/90 text-xs font-black uppercase tracking-wider backdrop-blur-md shadow-sm">
                 <span>POPULAR</span>
               </div>
 
-              {/* Main Headline */}
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black uppercase tracking-tight italic text-white drop-shadow-md leading-none">
-                GAME <span className="text-[#00d4ff] drop-shadow-[0_0_25px_rgba(0,212,255,0.6)]">ACCOUNTS</span>
+              {/* Big "GAME ACCOUNTS" Title */}
+              <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black uppercase tracking-tight italic text-white drop-shadow-[0_4px_25px_rgba(0,112,243,0.5)] leading-none">
+                GAME <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#00d4ff] via-[#00a3ff] to-[#38bdf8] drop-shadow-[0_0_35px_rgba(0,212,255,0.7)]">ACCOUNTS</span>
               </h1>
 
-              {/* Subtitle */}
-              <p className="text-sm sm:text-lg text-white/85 font-semibold drop-shadow">
+              {/* Subtitle & Value Line */}
+              <p className="text-base sm:text-xl font-bold text-white/95 drop-shadow">
                 Play More. Pay Less.
               </p>
 
-              {/* CTA Action & Spotlight Deal Pill */}
+              {/* CTA Button & Spotlight Deal */}
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Link
                   href="/store?category=game-accounts"
-                  className="px-6 py-2.5 sm:px-8 sm:py-3 rounded-full bg-[#0070f3] hover:bg-[#00d4ff] text-white font-extrabold text-xs sm:text-sm uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#0070f3]/40 transition-all hover:scale-105 group"
+                  className="inline-flex items-center gap-2.5 px-7 py-3 sm:px-8 sm:py-3.5 rounded-full bg-[#0070f3] hover:bg-[#00d4ff] text-white font-black text-sm uppercase tracking-wider shadow-xl shadow-[#0070f3]/40 transition-all hover:scale-105 active:scale-95 group"
                 >
                   <span>Shop Now</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </Link>
 
-                {/* Hydration-safe price tag for featured accounts */}
-                <div className="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-xs">
+                {/* Hydration-safe price tag for spotlight deals */}
+                <div className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10 text-xs">
                   <span className="text-[#7888a6] text-[11px]">From</span>
                   <span className="text-white/40 line-through text-[11px]">
                     {mounted ? format(spotlightGame.originalPriceUSD, spotlightGame.originalPriceIQD) : ''}
                   </span>
-                  <span className="text-[#00d4ff] font-mono font-bold">
+                  <span className="text-[#00d4ff] font-mono font-bold text-xs">
                     {mounted ? format(spotlightGame.priceUSD, spotlightGame.priceIQD) : `$${(spotlightGame.priceUSD / 100).toFixed(2)}`}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Bottom Platform Bar Inside Left Banner */}
-            <div className="relative z-10 pt-6 sm:pt-8 mt-auto">
+            {/* Platform Selection Row (Bottom of Left Banner) */}
+            <div className="relative z-10 pt-8 sm:pt-10 mt-auto space-y-2.5">
+              <div className="text-[11px] font-bold uppercase tracking-widest text-[#7888a6] flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-[#00d4ff]" />
+                <span>Select by Platform</span>
+              </div>
+
+              {/* 5 Major Platform Badges (Matches Reference Screenshot Brand Tiles) */}
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                {platformTiles.map((p) => {
+                {HERO_PLATFORMS.slice(0, 5).map((p) => {
                   const Icon = p.icon;
+                  const isSelected = selectedPlatform === p.id;
+                  const brandBg =
+                    p.id === 'steam'
+                      ? 'bg-[#0070f3]'
+                      : p.id === 'playstation'
+                      ? 'bg-[#00439c]'
+                      : p.id === 'xbox'
+                      ? 'bg-[#107c10]'
+                      : p.id === 'epic'
+                      ? 'bg-[#1a1a1a] border border-white/20'
+                      : 'bg-[#a3000b]';
+
                   return (
                     <Link
                       key={p.id}
                       href={p.href}
-                      className={`relative flex items-center justify-center p-3 sm:px-4 sm:py-3 rounded-2xl border transition-all ${
-                        p.active
-                          ? 'bg-[#0070f3]/25 border-[#0070f3] text-white shadow-lg shadow-[#0070f3]/30 ring-1 ring-[#0070f3]'
-                          : 'bg-[#0c162d]/80 border-[#1b2b4f] text-[#8a99b5] hover:text-white hover:border-[#0070f3]/60 hover:bg-[#0070f3]/15'
-                      }`}
+                      onClick={() => setSelectedPlatform(p.id)}
+                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center transition-all ${brandBg} text-white ${
+                        isSelected
+                          ? 'shadow-xl ring-2 ring-white/90 scale-105'
+                          : 'opacity-90 hover:opacity-100 hover:scale-105 shadow-md'
+                      } ${p.hoverBorder}`}
                       title={p.name}
                     >
-                      <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
-                      {p.active && (
-                        <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-1 bg-[#00d4ff] rounded-full shadow-[0_0_8px_#00d4ff]" />
-                      )}
+                      <Icon className="w-6 h-6 sm:w-7 sm:h-7" />
                     </Link>
                   );
                 })}
               </div>
+
+              {/* Miniature Platform Indicator / Switcher Row (Matches Reference Screenshot icon strip) */}
+              <div className="flex items-center gap-1.5 pt-0.5">
+                {HERO_PLATFORMS.slice(0, 5).map((p) => {
+                  const Icon = p.icon;
+                  const isSelected = selectedPlatform === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedPlatform(p.id)}
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                        isSelected
+                          ? 'bg-[#0070f3] text-white shadow-md shadow-[#0070f3]/50 scale-105'
+                          : 'bg-[#0c1626]/70 text-[#7888a6] hover:text-white hover:bg-white/10'
+                      }`}
+                      title={p.name}
+                      aria-label={p.name}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                    </button>
+                  );
+                })}
+              </div>
+
             </div>
           </div>
 
-          {/* Right Column: Stacked Cards (approx 34% width) */}
-          <div className="lg:col-span-4 flex flex-col gap-5 justify-between">
+          {/* ─── RIGHT COLUMN: Stacked Gift Cards & Subscriptions Cards (col-span-4) ─── */}
+          <div className="lg:col-span-4 flex flex-col justify-between gap-4 lg:gap-5">
             
-            {/* Top Card: GIFT CARDS */}
-            <div className="relative rounded-3xl border border-[#1b2a4a] bg-gradient-to-br from-[#0c1836] via-[#081026] to-[#050a18] p-5 sm:p-6 overflow-hidden flex items-center justify-between shadow-xl min-h-[190px] group">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_30%,_var(--tw-gradient-stops))] from-[#0070f3]/20 via-transparent to-transparent pointer-events-none" />
+            {/* 1. TOP CARD: GIFT CARDS */}
+            <div className="rounded-3xl border border-[#1b2a4a] bg-gradient-to-br from-[#0c1326] via-[#080d1f] to-[#040714] p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between flex-1 group hover:border-[#0070f3]/60 transition-all shadow-xl min-h-[220px] sm:min-h-[245px]">
+              
+              {/* Ambient Card Spotlight */}
+              <div className="absolute top-0 right-0 w-44 h-44 bg-[#0070f3]/15 blur-[60px] pointer-events-none rounded-full" />
+              
+              {/* Graphic on Right (3D Fanned PlayStation, Xbox, Steam Cards) */}
+              <div className="absolute right-0 top-0 bottom-0 w-[56%] h-full overflow-hidden pointer-events-none z-0">
+                <img
+                  src="/images/gift-cards-stack.jpg"
+                  alt="Gift Cards - PlayStation, Xbox, Steam"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                />
+                {/* Smooth blend to background */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[#080d1f] via-[#080d1f]/80 via-30% to-transparent" />
+              </div>
 
-              <div className="relative z-10 space-y-1.5 max-w-[55%]">
-                <h2 className="text-xl sm:text-2xl font-black uppercase text-white tracking-wide">
-                  GIFT CARDS
-                </h2>
-                <p className="text-xs text-[#8a99b5] leading-snug">
-                  Top up your balance. <br className="hidden sm:inline" />
-                  Play without limits.
-                </p>
-                <div className="pt-2">
+              {/* Text & Action on Left */}
+              <div className="relative z-10 max-w-[55%] flex flex-col justify-between h-full">
+                <div className="space-y-1">
+                  <h2 className="text-xl sm:text-2xl font-black italic uppercase tracking-tight text-white drop-shadow">
+                    GIFT CARDS
+                  </h2>
+                  <p className="text-xs sm:text-[13px] text-[#8a99b5] font-medium leading-relaxed">
+                    Top up your balance.<br />Play without limits.
+                  </p>
+                </div>
+
+                <div className="pt-4">
                   <Link
                     href="/store?category=gift-cards"
-                    className="px-4 py-2 rounded-full bg-[#0070f3] hover:bg-[#00d4ff] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-md shadow-[#0070f3]/30 transition-all hover:scale-105 group"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#0070f3] hover:bg-[#00d4ff] text-white font-extrabold text-xs uppercase tracking-wider shadow-md shadow-[#0070f3]/30 transition-all hover:scale-105 active:scale-95 group/btn"
                   >
                     <span>Shop Now</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
                   </Link>
                 </div>
               </div>
-
-              {/* 3D Angled Fan Graphic */}
-              <div className="relative z-10">
-                <GiftCardFan />
-              </div>
             </div>
 
-            {/* Bottom Card: SUBSCRIPTIONS */}
-            <div className="relative rounded-3xl border border-[#1b2a4a] bg-gradient-to-br from-[#0c1836] via-[#081026] to-[#050a18] p-5 sm:p-6 overflow-hidden flex items-center justify-between shadow-xl min-h-[190px] group">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_85%_30%,_var(--tw-gradient-stops))] from-[#00d4ff]/15 via-transparent to-transparent pointer-events-none" />
+            {/* 2. BOTTOM CARD: SUBSCRIPTIONS */}
+            <div className="rounded-3xl border border-[#1b2a4a] bg-gradient-to-br from-[#0c1326] via-[#080d1f] to-[#040714] p-5 sm:p-6 relative overflow-hidden flex flex-col justify-between flex-1 group hover:border-[#0070f3]/60 transition-all shadow-xl min-h-[220px] sm:min-h-[245px]">
+              
+              {/* Ambient Card Spotlight */}
+              <div className="absolute top-0 right-0 w-44 h-44 bg-[#00d4ff]/15 blur-[60px] pointer-events-none rounded-full" />
+              
+              {/* Graphic on Right (3D Fanned Game Pass, PS Plus, EA Play Cards) */}
+              <div className="absolute right-0 top-0 bottom-0 w-[56%] h-full overflow-hidden pointer-events-none z-0">
+                <img
+                  src="/images/subscriptions-stack.jpg"
+                  alt="Subscriptions - Xbox Game Pass, PlayStation Plus, EA Play"
+                  className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 ease-out"
+                />
+                {/* Smooth blend to background */}
+                <div className="absolute inset-0 bg-gradient-to-r from-[#080d1f] via-[#080d1f]/80 via-30% to-transparent" />
+              </div>
 
-              <div className="relative z-10 space-y-1.5 max-w-[55%]">
-                <h2 className="text-xl sm:text-2xl font-black uppercase text-white tracking-wide">
-                  SUBSCRIPTIONS
-                </h2>
-                <p className="text-xs text-[#8a99b5] leading-snug">
-                  More Games. <br className="hidden sm:inline" />
-                  More Benefits.
-                </p>
-                <div className="pt-2">
+              {/* Text & Action on Left */}
+              <div className="relative z-10 max-w-[55%] flex flex-col justify-between h-full">
+                <div className="space-y-1">
+                  <h2 className="text-xl sm:text-2xl font-black italic uppercase tracking-tight text-white drop-shadow">
+                    SUBSCRIPTIONS
+                  </h2>
+                  <p className="text-xs sm:text-[13px] text-[#8a99b5] font-medium leading-relaxed">
+                    More Games.<br />More Benefits.
+                  </p>
+                </div>
+
+                <div className="pt-4">
                   <Link
                     href="/store?category=subscriptions"
-                    className="px-4 py-2 rounded-full bg-[#0070f3] hover:bg-[#00d4ff] text-white text-xs font-bold inline-flex items-center gap-1.5 shadow-md shadow-[#0070f3]/30 transition-all hover:scale-105 group"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#0070f3] hover:bg-[#00d4ff] text-white font-extrabold text-xs uppercase tracking-wider shadow-md shadow-[#0070f3]/30 transition-all hover:scale-105 active:scale-95 group/btn"
                   >
                     <span>Shop Now</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                    <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
                   </Link>
                 </div>
               </div>
-
-              {/* 3D Angled Fan Graphic */}
-              <div className="relative z-10">
-                <SubscriptionCardFan />
-              </div>
             </div>
+
           </div>
         </div>
 
-        {/* ─── Horizontal Benefits Bar (Directly below hero banners) ────────── */}
-        <div className="mt-5 rounded-2xl bg-[#070b18] border border-[#142038] p-4 sm:p-5 shadow-lg shadow-black/40">
+        {/* ─── Horizontal Benefits Bar (Directly below hero banner) ────────── */}
+        <div className="mt-4 sm:mt-5 rounded-2xl bg-[#070b18] border border-[#142038] p-4 sm:p-5 shadow-lg shadow-black/40">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {benefits.map((item, idx) => {
               const Icon = item.icon;

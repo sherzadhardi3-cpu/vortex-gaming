@@ -33,13 +33,14 @@ export async function POST(
       );
     }
 
-    // Strict sandbox environment & sandbox order check
-    if (!order.isSandbox && !isEnvironmentForcedSandbox()) {
+    // Strict sandbox environment & sandbox order check: Strictly prohibited in live production
+    const isProduction = process.env.APP_ENV === 'production' && process.env.FORCE_SANDBOX !== 'true';
+    if (isProduction || (!order.isSandbox && !isEnvironmentForcedSandbox())) {
       return NextResponse.json(
         {
           success: false,
           error:
-            'Forbidden: Payment simulation is prohibited on live production orders.',
+            'Forbidden: Payment simulation is strictly prohibited in production environments.',
         },
         { status: 403 }
       );

@@ -1,5 +1,5 @@
 // VORTEX GAMING — Premium Homepage Redesign Verification Test Suite
-// Verifies Header layout, 9-category secondary nav, 66/34 two-column hero banners,
+// Verifies Header layout, 9-category secondary nav, 68/32 two-column hero banners,
 // platform shortcut bar, 3D fan illustrations, and horizontal benefits bar.
 
 import test from 'node:test';
@@ -69,39 +69,48 @@ test('Header: Secondary navigation preserves 9 categories with All Products acti
 
 // ─── 2. HERO LAYOUT VERIFICATION ────────────────────────────────────────────
 
-test('Hero Layout: 66/34 two-column grid structure', () => {
-  assert.ok(heroCode.includes('lg:grid-cols-12'), 'Hero must use a 12-column grid');
-  assert.ok(heroCode.includes('lg:col-span-8'), 'Left banner must occupy approx 66% width (8/12 cols)');
-  assert.ok(heroCode.includes('lg:col-span-4'), 'Right banner must occupy approx 34% width (4/12 cols)');
+test('Hero Layout: Two-column layout with left GAME ACCOUNTS banner and right stacked banners', () => {
+  // Grid layout
+  assert.ok(heroCode.includes('grid grid-cols-1 lg:grid-cols-12'), 'Hero must use responsive grid');
+  assert.ok(heroCode.includes('lg:col-span-8'), 'Left banner must occupy approximately 66-68% width');
+  assert.ok(heroCode.includes('lg:col-span-4'), 'Right column must occupy approximately 32-34% width');
+  assert.ok(heroCode.includes('rounded-3xl'), 'Hero banner must use rounded-3xl corners');
+  assert.ok(heroCode.includes('border-[#1b2a4a]'), 'Hero banner must use dark blue border');
+  assert.ok(heroCode.includes('bg-[#080d1f]'), 'Hero banner must use dark navy cyberpunk surface');
 });
 
-test('Hero Layout: Left banner displays GAME ACCOUNTS headline and platform tiles', () => {
-  assert.ok(heroCode.includes('POPULAR'), 'Left banner must include POPULAR badge');
-  assert.ok(heroCode.includes('GAME'), 'Left banner must include GAME in headline');
-  assert.ok(heroCode.includes('ACCOUNTS'), 'Left banner must include ACCOUNTS in headline');
-  assert.ok(heroCode.includes('Play More. Pay Less.'), 'Left banner must include subtitle');
-  assert.ok(heroCode.includes('/store?category=game-accounts'), 'Left banner CTA must link to game-accounts');
+test('Hero Content: Left GAME ACCOUNTS banner and Right GIFT CARDS & SUBSCRIPTIONS cards', () => {
+  // Left Banner
+  assert.ok(heroCode.includes('GAME') && heroCode.includes('ACCOUNTS'), 'Hero must include GAME ACCOUNTS');
+  assert.ok(heroCode.includes('Play More. Pay Less.'), 'Hero must include subtitle');
+  assert.ok(heroCode.includes('POPULAR'), 'Hero must include POPULAR badge');
+  assert.ok(heroCode.includes('Shop Now'), 'Hero must feature Shop Now button');
+  assert.ok(heroCode.includes('bg-[#0070f3]'), 'Shop Now CTA must use electric-blue background');
 
-  // 5 Platforms
-  assert.ok(heroCode.includes('/platform/steam'), 'Platform tiles must link to Steam');
-  assert.ok(heroCode.includes('/platform/playstation'), 'Platform tiles must link to PlayStation');
-  assert.ok(heroCode.includes('/platform/xbox'), 'Platform tiles must link to Xbox');
-  assert.ok(heroCode.includes('/platform/epic-games'), 'Platform tiles must link to Epic Games');
-  assert.ok(heroCode.includes('/store?platform=ea'), 'Platform tiles must link to EA');
+  // Right Stacked Cards
+  assert.ok(heroCode.includes('GIFT CARDS'), 'Right column must include GIFT CARDS card');
+  assert.ok(heroCode.includes('SUBSCRIPTIONS'), 'Right column must include SUBSCRIPTIONS card');
+  assert.ok(heroCode.includes('gift-cards-stack.jpg'), 'Must reference gift cards graphic');
+  assert.ok(heroCode.includes('subscriptions-stack.jpg'), 'Must reference subscriptions graphic');
 });
 
-test('Hero Layout: Right banner displays stacked GIFT CARDS and SUBSCRIPTIONS with 3D fan graphics', () => {
-  // Top Card: Gift Cards
-  assert.ok(heroCode.includes('GIFT CARDS'), 'Right top card must feature GIFT CARDS');
-  assert.ok(heroCode.includes('/store?category=gift-cards'), 'Gift cards CTA must link to /store?category=gift-cards');
-  assert.ok(heroCode.includes('Top up your balance.'), 'Gift cards must display balance subtitle');
-  assert.ok(heroCode.includes('GiftCardFan'), 'Gift cards card must render 3D GiftCardFan illustration');
+test('Hero Platforms: Platform shortcuts and selector row inside hero banner', () => {
+  // Platform pills container
+  assert.ok(heroCode.includes('Select by Platform'), 'Platform selector heading must exist inside hero');
 
-  // Bottom Card: Subscriptions
-  assert.ok(heroCode.includes('SUBSCRIPTIONS'), 'Right bottom card must feature SUBSCRIPTIONS');
-  assert.ok(heroCode.includes('/store?category=subscriptions'), 'Subscriptions CTA must link to /store?category=subscriptions');
-  assert.ok(heroCode.includes('More Games.'), 'Subscriptions must display benefits subtitle');
-  assert.ok(heroCode.includes('SubscriptionCardFan'), 'Subscriptions card must render 3D SubscriptionCardFan illustration');
+  // Platform icons with strong platform links
+  assert.ok(heroCode.includes('/platform/steam'), 'Platform pills must link to Steam');
+  assert.ok(heroCode.includes('/platform/playstation'), 'Platform pills must link to PlayStation');
+  assert.ok(heroCode.includes('/platform/xbox'), 'Platform pills must link to Xbox');
+
+  assert.ok(heroCode.includes('SteamIcon'), 'Steam pill must render icon');
+  assert.ok(heroCode.includes('PlayStationIcon'), 'PlayStation pill must render icon');
+  assert.ok(heroCode.includes('XboxIcon'), 'Xbox pill must render icon');
+});
+
+test('Section Removal: Select by Platform section is removed from homepage page.tsx', () => {
+  assert.ok(!pageCode.includes('<PlatformShowcase />'), 'PlatformShowcase component must NOT be rendered in page.tsx');
+  assert.ok(!pageCode.includes("from '@/components/home/PlatformShowcase'"), 'PlatformShowcase import must NOT be present in page.tsx');
 });
 
 // ─── 3. BENEFITS BAR VERIFICATION ───────────────────────────────────────────
@@ -123,13 +132,13 @@ test('Benefits Bar: 4 horizontal items directly beneath hero banners with truthf
 
   // Exact English strings
   assert.equal(TRANSLATIONS.en['trust.instantDelivery'], 'Instant Delivery');
-  assert.equal(TRANSLATIONS.en['trust.instantDeliveryDesc'], 'Automated key dispatch upon payment clearance.');
+  assert.equal(TRANSLATIONS.en['trust.instantDeliveryDesc'], 'Get your product right after payment.');
   assert.equal(TRANSLATIONS.en['trust.genuineProducts'], '100% Original');
-  assert.equal(TRANSLATIONS.en['trust.genuineProductsDesc'], 'Official and genuine authorized publisher keys.');
+  assert.equal(TRANSLATIONS.en['trust.genuineProductsDesc'], 'Official and genuine products.');
   assert.equal(TRANSLATIONS.en['trust.securePayment'], 'Secure Payment');
-  assert.equal(TRANSLATIONS.en['trust.securePaymentDesc'], 'Encrypted 256-bit checkout & sandbox tested.');
+  assert.equal(TRANSLATIONS.en['trust.securePaymentDesc'], 'Safe and trusted payment methods.');
   assert.equal(TRANSLATIONS.en['trust.support'], '24/7 Support');
-  assert.equal(TRANSLATIONS.en['trust.supportDesc'], 'Dedicated gamer assistance and ticket helpdesk.');
+  assert.equal(TRANSLATIONS.en['trust.supportDesc'], 'We are always here to help.');
 
   // Placement in HeroSection
   assert.ok(heroCode.includes('Horizontal Benefits Bar'), 'Benefits bar must be inside or directly below HeroSection');
